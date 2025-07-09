@@ -68,6 +68,24 @@ h1 {
     margin-bottom: 30px;
 }
 
+.audio-notice {
+    background: #4a90e2;
+    color: #fff;
+    border: 2px solid #357abd;
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-family: 'Minecraft Regular', monospace;
+    box-shadow: 0 2px 0 #357abd;
+    animation: pulse 2s infinite;
+}
+
+.audio-notice p {
+    margin: 0;
+    font-size: 16px;
+}
+
 .track-tabs {
     display: flex;
     gap: 8px;

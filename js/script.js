@@ -19,7 +19,7 @@ class NBSEditor {
             ]
         };
 
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioContext = null; // Will be initialized after user interaction
         this.buffers = new Map();
         this.currentInstrument = 0;
         this.isPlaying = false;
@@ -71,34 +71,126 @@ class NBSEditor {
     }
 
     async init() {
-        await this.loadInstrumentSounds();
         this.setupUI();
         this.generateNoteGrid();
         this.setupEventListeners();
         this.renderTrackTabs(); // Render tabs after setup
         this.updateVolumeSlider(); // Initialize volume slider
         this.saveState(); // Save initial state
+        
+        // Show audio notice initially
+        const audioNotice = document.getElementById('audioNotice');
+        if (audioNotice) {
+            // Check if we can create an audio context immediately (user has already interacted)
+            try {
+                const testContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (testContext.state === 'running') {
+                    audioNotice.style.display = 'none';
+                    testContext.close();
+                } else {
+                    audioNotice.style.display = 'block';
+                    testContext.close();
+                }
+            } catch (e) {
+                audioNotice.style.display = 'block';
+            }
+        }
+        
+        // Note: Audio loading is now done after user interaction to comply with autoplay policies
     }
 
     async loadInstrumentSounds() {
+        // Initialize audio context if not already done
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Don't reload if already loaded
+        if (this.buffers.size > 0) {
+            return;
+        }
+        
         // Create a promise for each instrument to load its OGG file
         const loadPromises = this.instruments.map(instrument => 
-            this.loadAudioBuffer(`/assets/instruments/${instrument.id}.ogg`)
+            this.loadAudioBuffer(`assets/instruments/${instrument.id}.ogg`)
         );
     
-        // Wait for all instruments to load
-        const buffers = await Promise.all(loadPromises);
+        // Wait for all instruments to load, but don't fail if some fail
+        const results = await Promise.allSettled(loadPromises);
         
         // Store loaded buffers in the map
-        buffers.forEach((buffer, index) => {
-            this.buffers.set(this.instruments[index].id, buffer);
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                this.buffers.set(this.instruments[index].id, result.value);
+            } else {
+                console.warn(`Failed to load instrument ${this.instruments[index].id}:`, result.reason);
+                // Create a fallback buffer for this instrument
+                const fallbackBuffer = this.createSynthBuffer(this.instruments[index].id);
+                this.buffers.set(this.instruments[index].id, fallbackBuffer);
+            }
         });
     }
     
+    createSynthBuffer(instrumentId = 0) {
+        // Create a simple synthesized tone as fallback
+        const sampleRate = this.audioContext.sampleRate;
+        const duration = 0.5; // 0.5 seconds
+        const numSamples = Math.floor(sampleRate * duration);
+        
+        const buffer = this.audioContext.createBuffer(1, numSamples, sampleRate);
+        const channelData = buffer.getChannelData(0);
+        
+        // Different base frequencies for different instrument types
+        let baseFrequency = 440; // A4 note
+        
+        // Adjust frequency based on instrument type
+        if (instrumentId >= 2 && instrumentId <= 4) {
+            // Drums - lower frequency, more percussive
+            baseFrequency = 200;
+        } else if (instrumentId >= 5 && instrumentId <= 6) {
+            // Guitar/Flute - higher frequency
+            baseFrequency = 660;
+        } else if (instrumentId >= 7 && instrumentId <= 11) {
+            // Bells/Chimes - very high frequency
+            baseFrequency = 880;
+        }
+        
+        for (let i = 0; i < numSamples; i++) {
+            const t = i / sampleRate;
+            // Apply envelope to avoid clicks
+            const envelope = Math.min(1, t / 0.01) * Math.max(0, 1 - (t - (duration - 0.05)) / 0.05);
+            
+            // Different waveforms for different instruments
+            let wave;
+            if (instrumentId >= 2 && instrumentId <= 4) {
+                // Drums - noise-like
+                wave = (Math.random() - 0.5) * 2;
+            } else {
+                // Melodic instruments - sine wave
+                wave = Math.sin(2 * Math.PI * baseFrequency * t);
+            }
+            
+            channelData[i] = wave * envelope * 0.3;
+        }
+        
+        return buffer;
+    }
+
     async loadAudioBuffer(url) {
         try {
+            // Ensure audio context is initialized
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Extract instrument ID from URL for fallback
+            const instrumentId = parseInt(url.match(/(\d+)\.ogg$/)?.[1] || '0');
+            
             // Fetch audio file
             const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             const arrayBuffer = await response.arrayBuffer();
             
             // Decode audio data
@@ -106,7 +198,8 @@ class NBSEditor {
         } catch (error) {
             console.error(`Error loading audio: ${url}`, error);
             // Fallback to synthesized sound if loading fails
-            return this.createSynthBuffer();
+            const instrumentId = parseInt(url.match(/(\d+)\.ogg$/)?.[1] || '0');
+            return this.createSynthBuffer(instrumentId);
         }
     }
 
@@ -176,11 +269,24 @@ class NBSEditor {
     }
 
     playNote(noteIndex, instrumentId = null, time = 0) {
+        // Ensure audio context is initialized
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
         const source = this.audioContext.createBufferSource();
         // Use the passed instrumentId or fall back to current track's instrument
         const track = this.song.tracks[this.currentTrackIndex];
         const instrumentToUse = instrumentId !== null ? instrumentId : track.instrument;
-        source.buffer = this.buffers.get(instrumentToUse);
+        
+        // Get buffer, create fallback if not available
+        let buffer = this.buffers.get(instrumentToUse);
+        if (!buffer) {
+            buffer = this.createSynthBuffer(instrumentToUse);
+            this.buffers.set(instrumentToUse, buffer);
+        }
+        
+        source.buffer = buffer;
         
         const semitones = noteIndex - 12;
         source.playbackRate.value = Math.pow(2, semitones / 12);
@@ -196,6 +302,16 @@ class NBSEditor {
 
     play() {
         if (this.isPlaying) return;
+        
+        // Ensure audio context is initialized and resumed
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Resume audio context if it's suspended
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
         
         this.isPlaying = true;
         document.getElementById('playBtn').disabled = true;
@@ -368,8 +484,24 @@ class NBSEditor {
     setupEventListeners() {
         const gridContainer = document.getElementById('gridContainer');
         
+        // Initialize audio context on first user interaction
+        const initAudioContext = () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.loadInstrumentSounds(); // Load sounds after context is created
+                // Hide the audio notice once audio is initialized
+                const audioNotice = document.getElementById('audioNotice');
+                if (audioNotice) {
+                    audioNotice.style.display = 'none';
+                }
+            } else if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume();
+            }
+        };
+        
         // Mouse events for desktop
         gridContainer.addEventListener('mousedown', (e) => {
+            initAudioContext(); // Initialize audio context on first interaction
             if (e.target.classList.contains('note-cell')) {
                 this.isDragging = true;
                 this.toggleNote(e.target);
@@ -394,6 +526,7 @@ class NBSEditor {
         // Touch events for mobile
         gridContainer.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            initAudioContext(); // Initialize audio context on first interaction
             const touch = e.touches[0];
             const targetCell = document.elementFromPoint(touch.clientX, touch.clientY);
             if (targetCell && targetCell.classList.contains('note-cell')) {
@@ -423,7 +556,10 @@ class NBSEditor {
         }, { passive: false });
 
         // Transport controls
-        document.getElementById('playBtn').addEventListener('click', () => this.play());
+        document.getElementById('playBtn').addEventListener('click', () => {
+            initAudioContext();
+            this.play();
+        });
         document.getElementById('pauseBtn').addEventListener('click', () => this.pause());
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         document.getElementById('clearBtn').addEventListener('click', () => this.clear());
@@ -470,7 +606,7 @@ class NBSEditor {
         
         // Resume audio context on first interaction
         document.addEventListener('click', () => {
-            if (this.audioContext.state === 'suspended') {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
                 this.audioContext.resume();
             }
         }, { once: true });
@@ -550,8 +686,21 @@ class NBSEditor {
 
     // Add a helper to play a note with a specific instrument
     playNoteWithInstrument(noteIndex, instrumentId, time = 0) {
+        // Ensure audio context is initialized
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
         const source = this.audioContext.createBufferSource();
-        source.buffer = this.buffers.get(instrumentId);
+        
+        // Get buffer, create fallback if not available
+        let buffer = this.buffers.get(instrumentId);
+        if (!buffer) {
+            buffer = this.createSynthBuffer(instrumentId);
+            this.buffers.set(instrumentId, buffer);
+        }
+        
+        source.buffer = buffer;
         const semitones = noteIndex - 12;
         source.playbackRate.value = Math.pow(2, semitones / 12);
         
@@ -567,8 +716,21 @@ class NBSEditor {
 
     // Add a helper to play a note with a specific instrument and volume
     playNoteWithTrackVolume(noteIndex, instrumentId, volume, time = 0) {
+        // Ensure audio context is initialized
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
         const source = this.audioContext.createBufferSource();
-        source.buffer = this.buffers.get(instrumentId);
+        
+        // Get buffer, create fallback if not available
+        let buffer = this.buffers.get(instrumentId);
+        if (!buffer) {
+            buffer = this.createSynthBuffer(instrumentId);
+            this.buffers.set(instrumentId, buffer);
+        }
+        
+        source.buffer = buffer;
         const semitones = noteIndex - 12;
         source.playbackRate.value = Math.pow(2, semitones / 12);
         
