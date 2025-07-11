@@ -494,32 +494,32 @@ input[type="text"]:focus, textarea:focus {
     .controls > * {
         width: 100%;
         max-width: 100%;
-        min-height: 48px;
-        margin-bottom: 8px;
+        min-height: 36px;
+        margin-bottom: 6px;
     }
     .tempo-control, .instrument-control, .volume-control {
         flex-direction: column;
         align-items: stretch;
-        gap: 4px;
-        padding: 8px 4px;
-        font-size: 16px;
+        gap: 2px;
+        padding: 4px 2px;
+        font-size: 14px;
     }
     .tempo-input {
         width: 100%;
-        font-size: 16px;
-        padding: 8px;
-        margin: 8px 0 0 0;
+        font-size: 14px;
+        padding: 4px;
+        margin: 4px 0 0 0;
         box-sizing: border-box;
     }
     input[type="range"] {
         width: 100%;
         min-width: 0;
         max-width: 100%;
-        height: 32px;
+        height: 24px;
         margin-bottom: 0;
     }
     #volumeValue, #tempoValue {
-        font-size: 16px;
+        font-size: 14px;
         text-align: right;
         margin: 0 0 0 0;
         padding: 0;
@@ -583,9 +583,9 @@ input[type="text"]:focus, textarea:focus {
     }
     
     button, select, input, textarea {
-        padding: 8px 12px;
+        padding: 6px 10px;
         font-size: 14px;
-        min-height: 44px; /* Touch-friendly minimum size */
+        min-height: 36px; /* Touch-friendly minimum size */
     }
     
     input[type="range"] {
@@ -702,16 +702,16 @@ label {
         margin-bottom: 8px;
     }
     .button-row button {
-        font-size: 16px;
-        min-height: 44px;
+        font-size: 14px;
+        min-height: 36px;
         width: 50%;
-        padding: 12px 0;
+        padding: 8px 0;
     }
     .controls > button {
         width: 100%;
-        margin-bottom: 8px;
-        font-size: 16px;
-        min-height: 44px;
+        margin-bottom: 6px;
+        font-size: 14px;
+        min-height: 36px;
     }
 }
 
@@ -726,45 +726,105 @@ label {
 .slider-row input[type="range"] {
     flex: 1 1 auto;
     min-width: 0;
-    height: 32px;
+    height: 24px;
     margin: 0;
 }
 
 .slider-row #volumeValue {
-    min-width: 56px;     /* Slightly wider for centering */
+    min-width: 48px;     /* Slightly wider for centering */
     text-align: center;  /* Center horizontally */
-    font-size: 16px;
+    font-size: 14px;
     margin: 0;
     padding: 0;
     line-height: 1;
     display: flex;
     align-items: center; /* Center vertically */
     justify-content: center; /* Center horizontally */
-    height: 32px;
+    height: 24px;
 }
 
 .slider-row .tempo-input {
     width: 80px;
     max-width: 96px;
     min-width: 64px;
-    font-size: 16px;
-    padding: 8px;
+    font-size: 14px;
+    padding: 4px;
     margin: 0;
     box-sizing: border-box;
     text-align: center;
     display: flex;
     align-items: center;
-    height: 32px;
+    height: 24px;
 }
 
 .slider-row #tempoValue {
     min-width: 32px;
     text-align: left;
-    font-size: 16px;
+    font-size: 14px;
     margin: 0;
     padding: 0 0 0 2px;
     line-height: 1;
     display: flex;
     align-items: center;
-    height: 32px;
+    height: 24px;
+}
+
+/* --- Desktop Control Group Layout --- */
+@media (min-width: 769px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+  }
+  .button-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 0;
+  }
+  .controls > button {
+    display: inline-block;
+    width: auto;
+    margin: 0 12px 0 0;
+    font-size: 16px;
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+  .control-groups {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 12px;
+  }
+  .control-card {
+    background: #363636;
+    border: 2px solid #555;
+    border-radius: 8px;
+    padding: 18px 24px 16px 24px;
+    min-width: 260px;
+    max-width: 320px;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    box-sizing: border-box;
+  }
+  .instrument-control, .volume-control, .tempo-control {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+  }
+  .instrument-control label, .volume-control label, .tempo-control label {
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #ccc;
+    text-align: left;
+  }
+  .slider-row {
+    margin-top: 0;
+  }
 }
