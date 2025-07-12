@@ -333,7 +333,7 @@ button:disabled {
 .note-label {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     height: 25px;
     min-width: 64px;
     width: 64px;
@@ -343,7 +343,8 @@ button:disabled {
     color: #ffd;
     background: #232323;
     border-bottom: 1px solid #333;
-    padding-right: 8px;
+    padding-left: 8px;
+    padding-right: 0;
     font-family: 'Minecraft Regular', monospace;
     user-select: none;
     letter-spacing: 1px;
