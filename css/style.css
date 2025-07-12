@@ -79,6 +79,18 @@ h1 {
     font-family: 'Minecraft Regular', monospace;
     box-shadow: 0 2px 0 #357abd;
     animation: pulse 2s infinite;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.audio-notice:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #357abd;
+}
+
+.audio-notice:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 0 #357abd;
 }
 
 .audio-notice p {
@@ -231,59 +243,115 @@ button:disabled {
 }
 
 .piano-roll {
-    display: flex;
-    align-items: flex-start;
-    width: 100%;
-    overflow-x: auto;
+    overflow: auto;
+    display: inline-block;
+    padding: 0;
     background: #1a1a1a;
     border: 3px solid #555;
-    border-radius: 6px;
-    padding: 20px;
-    margin-bottom: 20px;
-    position: relative;
-    box-sizing: border-box;
+    border-radius: 8px;
+    margin: 20px 0;
+    box-shadow: 0 4px 0 #2a2a2a;
 }
 
+.piano-roll-inner {
+    display: grid;
+    grid-template-columns: 64px auto;
+    grid-template-rows: 32px auto;
+    grid-template-areas:
+        'corner-blank tick-labels'
+        'piano-keys grid-container';
+    width: max-content;
+    background: transparent;
+}
+.corner-blank {
+    grid-area: corner-blank;
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    height: 32px;
+    background: #232323;
+    border-bottom: 2px solid #444;
+    border-right: 2px solid #666;
+    margin: 0;
+    padding: 0;
+}
+.tick-labels {
+    grid-area: tick-labels;
+    display: grid;
+    grid-template-columns: repeat(64, 25px);
+    height: 32px;
+    font-size: 18px;
+    background: #232323;
+    border-bottom: 2px solid #444;
+    box-shadow: 0 2px 0 #181818;
+}
 .piano-keys {
-    display: flex;
-    flex-direction: column;
-    width: 60px;
-    min-width: 60px;
-    flex: none;
-    align-items: stretch;
-    /* No height! */
+    grid-area: piano-keys;
+    display: grid;
+    grid-template-rows: repeat(25, 25px);
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+    background: #181818;
+    border-right: 2px solid #666;
+    box-shadow: 2px 0 0 #232323;
+    margin: 0;
+    padding: 0;
 }
-
 .grid-container {
+    grid-area: grid-container;
     display: grid;
     grid-template-columns: repeat(64, 25px);
     grid-template-rows: repeat(25, 25px);
     width: max-content;
-    min-width: 1600px;
-    box-sizing: border-box;
-    /* No height! */
+    height: max-content;
+    background: #232323;
+    border-radius: 0 0 8px 0;
+    box-shadow: 0 2px 0 #181818;
 }
 
-.note-label, .note-cell {
-    height: 25px;
+.tick-label {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #eee;
+    font-family: 'Minecraft Regular', monospace;
+    background: transparent;
+    border: none;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    /* border: 1px solid #f00; // Uncomment for debug */
+    user-select: none;
+    letter-spacing: 1px;
+    padding: 0 2px;
+}
+.tick-label:nth-child(5n+1) {
+    font-weight: bold;
+    color: #ffd700;
 }
 
 .note-label {
-    line-height: 25px;
-    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 25px;
+    min-width: 64px;
+    width: 64px;
+    max-width: 64px;
+    font-size: 20px;
+    font-weight: bold;
     color: #ffd;
-    background: transparent;
-    text-align: left;
-    padding-left: 4px;
+    background: #232323;
+    border-bottom: 1px solid #333;
+    padding-right: 8px;
+    font-family: 'Minecraft Regular', monospace;
+    user-select: none;
+    letter-spacing: 1px;
 }
 
 .note-cell {
-    width: 25px;
-    height: 25px;
+    width: 20px;
+    height: 20px;
     background: #3a3a3a;
     border: 1px solid #444;
     cursor: pointer;
@@ -306,19 +374,6 @@ button:disabled {
     0% { transform: scale(1); }
     50% { transform: scale(1.1); }
     100% { transform: scale(1); }
-}
-
-.playhead {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: #ff0000;
-    box-shadow: 0 0 8px #ff0000;
-    z-index: 100;
-    pointer-events: none;
-    transition: left 0.1s linear;
-    display: none;
 }
 
 .tempo-control, .instrument-control, .volume-control {
@@ -659,6 +714,15 @@ input[type="text"]:focus, textarea:focus {
     height: auto;
 }
 
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(64, 25px);
+    grid-template-rows: repeat(25, 25px);
+    width: max-content;
+    min-width: 1600px;
+    box-sizing: border-box;
+}
+
 .volume-control, .tempo-control {
     display: flex;
     flex-direction: column;
@@ -771,60 +835,39 @@ label {
 
 /* --- Desktop Control Group Layout --- */
 @media (min-width: 769px) {
-  .controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 24px;
-  }
-  .button-row {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: 24px;
-    margin-bottom: 0;
-  }
-  .controls > button {
-    display: inline-block;
-    width: auto;
-    margin: 0 12px 0 0;
-    font-size: 16px;
-    min-height: 44px;
-    padding: 10px 18px;
-  }
-  .control-groups {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: 32px;
-    margin-top: 12px;
-  }
-  .control-card {
-    background: #363636;
-    border: 2px solid #555;
+  .piano-roll {
+    max-width: 90vw;
+    width: 100%;
+    overflow-x: auto;
+    margin: 0 auto;
     border-radius: 8px;
-    padding: 18px 24px 16px 24px;
-    min-width: 260px;
-    max-width: 320px;
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    box-sizing: border-box;
+    box-shadow: 0 2px 8px #111a;
+    background: #232323;
+    /* Cap at 1200px for ultra-wide screens */
+    max-width: 1200px;
   }
-  .instrument-control, .volume-control, .tempo-control {
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    box-shadow: none;
+  .tick-label {
+    font-size: 13px;
   }
-  .instrument-control label, .volume-control label, .tempo-control label {
-    margin-bottom: 8px;
-    font-size: 15px;
-    color: #ccc;
-    text-align: left;
-  }
-  .slider-row {
-    margin-top: 0;
-  }
+}
+
+@media (max-width: 900px) {
+    .piano-roll-inner, .grid-container, .tick-labels {
+        min-width: 600px;
+    }
+    .piano-keys {
+        width: 64px !important;
+        min-width: 64px !important;
+        max-width: 64px !important;
+    }
+    .note-label {
+        font-size: 18px;
+        padding-left: 1px;
+        width: 64px !important;
+        min-width: 64px !important;
+        max-width: 64px !important;
+    }
+    .tick-label {
+        font-size: 12px;
+    }
 }

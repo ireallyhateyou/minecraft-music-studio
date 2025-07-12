@@ -29,6 +29,7 @@ class NBSEditor {
         this.playInterval = null;
         this.currentTrackIndex = 0; // Track currently being edited/viewed
         this.fullViewMode = false; // Track full view state
+        this.audioInitializing = false; // Flag to prevent multiple simultaneous audio initializations
         // Default note names (will be updated per instrument)
         this.noteNames = [
             'F♯3', 'G3', 'G♯3', 'A3', 'A♯3', 'B3', 'C4', 'C♯4', 'D4', 'D♯4', 'E4', 'F4', 'F♯4',
@@ -217,19 +218,29 @@ class NBSEditor {
     generateNoteGrid() {
         const gridContainer = document.getElementById('gridContainer');
         const noteLabels = document.querySelector('.piano-keys');
+        const tickLabels = document.querySelector('.tick-labels');
+        
         noteLabels.innerHTML = '';
+        tickLabels.innerHTML = '';
         gridContainer.innerHTML = '';
-        const noteNames = [
-            'F♯3', 'G3', 'G♯3', 'A3', 'A♯3', 'B3', 'C4', 'C♯4', 'D4', 'D♯4', 'E4', 'F4', 'F♯4',
-            'G4', 'G♯4', 'A4', 'A♯4', 'B4', 'C5', 'C♯5', 'D5', 'D♯5', 'E5', 'F5', 'F♯5'
-        ];
+        
+        // Generate tick labels (0-63)
+        for (let tick = 0; tick < 64; tick++) {
+            const tickLabel = document.createElement('div');
+            tickLabel.className = 'tick-label';
+            tickLabel.textContent = tick;
+            tickLabels.appendChild(tickLabel);
+        }
+        // Generate note labels (25 rows)
+        const noteNames = this.getCurrentNoteNames();
         for (let i = 0; i < 25; i++) {
-            // Label
             const label = document.createElement('div');
             label.className = 'note-label';
-            label.textContent = noteNames[i];
+            label.textContent = noteNames[i] || '';
             noteLabels.appendChild(label);
-            // Grid row
+        }
+        // Generate grid cells (64x25 = 1600)
+        for (let i = 0; i < 25; i++) {
             for (let tick = 0; tick < 64; tick++) {
                 const cell = document.createElement('div');
                 cell.className = 'note-cell';
@@ -238,6 +249,8 @@ class NBSEditor {
                 gridContainer.appendChild(cell);
             }
         }
+        // Restore visual state of notes after regenerating grid
+        this.restoreNoteVisuals();
     }
 
     // Update all references to this.song.notes and this.song.instruments to use the first track for now
@@ -269,9 +282,10 @@ class NBSEditor {
     }
 
     playNote(noteIndex, instrumentId = null, time = 0) {
-        // Ensure audio context is initialized
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Ensure audio context is initialized and ready
+        if (!this.audioContext || this.audioContext.state === 'suspended') {
+            console.warn('Audio context not ready, skipping note playback');
+            return;
         }
         
         const source = this.audioContext.createBufferSource();
@@ -485,23 +499,33 @@ class NBSEditor {
         const gridContainer = document.getElementById('gridContainer');
         
         // Initialize audio context on first user interaction
-        const initAudioContext = () => {
+        const initAudioContext = async () => {
+            // Prevent multiple simultaneous initializations
+            if (this.audioInitializing) {
+                return;
+            }
+            
             if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                this.loadInstrumentSounds(); // Load sounds after context is created
-                // Hide the audio notice once audio is initialized
-                const audioNotice = document.getElementById('audioNotice');
-                if (audioNotice) {
-                    audioNotice.style.display = 'none';
+                this.audioInitializing = true;
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    await this.loadInstrumentSounds(); // Wait for sounds to load
+                    // Hide the audio notice once audio is initialized
+                    const audioNotice = document.getElementById('audioNotice');
+                    if (audioNotice) {
+                        audioNotice.style.display = 'none';
+                    }
+                } finally {
+                    this.audioInitializing = false;
                 }
             } else if (this.audioContext.state === 'suspended') {
-                this.audioContext.resume();
+                await this.audioContext.resume();
             }
         };
         
         // Mouse events for desktop
-        gridContainer.addEventListener('mousedown', (e) => {
-            initAudioContext(); // Initialize audio context on first interaction
+        gridContainer.addEventListener('mousedown', async (e) => {
+            await initAudioContext(); // Initialize audio context on first interaction
             if (e.target.classList.contains('note-cell')) {
                 this.isDragging = true;
                 this.toggleNote(e.target);
@@ -524,9 +548,9 @@ class NBSEditor {
         });
 
         // Touch events for mobile
-        gridContainer.addEventListener('touchstart', (e) => {
+        gridContainer.addEventListener('touchstart', async (e) => {
             e.preventDefault();
-            initAudioContext(); // Initialize audio context on first interaction
+            await initAudioContext(); // Initialize audio context on first interaction
             const touch = e.touches[0];
             const targetCell = document.elementFromPoint(touch.clientX, touch.clientY);
             if (targetCell && targetCell.classList.contains('note-cell')) {
@@ -556,10 +580,26 @@ class NBSEditor {
         }, { passive: false });
 
         // Transport controls
-        document.getElementById('playBtn').addEventListener('click', () => {
-            initAudioContext();
+        document.getElementById('playBtn').addEventListener('click', async () => {
+            await initAudioContext();
             this.play();
         });
+        
+        // Audio notice - scroll to piano roll
+        const audioNotice = document.getElementById('audioNotice');
+        if (audioNotice) {
+            audioNotice.addEventListener('click', async () => {
+                await initAudioContext();
+                // Scroll to piano roll
+                const pianoRoll = document.querySelector('.piano-roll');
+                if (pianoRoll) {
+                    pianoRoll.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
+            });
+        }
         document.getElementById('pauseBtn').addEventListener('click', () => this.pause());
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         document.getElementById('clearBtn').addEventListener('click', () => this.clear());
@@ -686,9 +726,10 @@ class NBSEditor {
 
     // Add a helper to play a note with a specific instrument
     playNoteWithInstrument(noteIndex, instrumentId, time = 0) {
-        // Ensure audio context is initialized
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Ensure audio context is initialized and ready
+        if (!this.audioContext || this.audioContext.state === 'suspended') {
+            console.warn('Audio context not ready, skipping note playback');
+            return;
         }
         
         const source = this.audioContext.createBufferSource();
@@ -716,9 +757,10 @@ class NBSEditor {
 
     // Add a helper to play a note with a specific instrument and volume
     playNoteWithTrackVolume(noteIndex, instrumentId, volume, time = 0) {
-        // Ensure audio context is initialized
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Ensure audio context is initialized and ready
+        if (!this.audioContext || this.audioContext.state === 'suspended') {
+            console.warn('Audio context not ready, skipping note playback');
+            return;
         }
         
         const source = this.audioContext.createBufferSource();
@@ -808,6 +850,21 @@ class NBSEditor {
         const track = this.song.tracks[this.currentTrackIndex];
         return this.getNoteRangeForInstrument(track.instrument);
     }
+
+    // Restore visual state of notes after grid regeneration
+    restoreNoteVisuals() {
+        const track = this.song.tracks[this.currentTrackIndex];
+        Object.entries(track.notes).forEach(([key, note]) => {
+            const [noteIndex, tick] = key.split(',').map(Number);
+            const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
+            if (cell) {
+                cell.classList.add('active');
+                cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+            }
+        });
+    }
+
+
 
     // Add a method to update the volume slider to match the current track
     updateVolumeSlider() {
