@@ -291,7 +291,7 @@ button:disabled {
 .tick-labels {
     grid-area: tick-labels;
     display: grid;
-    grid-template-columns: repeat(64, 25px);
+    grid-template-columns: repeat(var(--song-length, 64), 25px);
     height: 32px;
     font-size: 18px;
     background: #232323;
@@ -314,7 +314,7 @@ button:disabled {
 .grid-container {
     grid-area: grid-container;
     display: grid;
-    grid-template-columns: repeat(64, 25px);
+    grid-template-columns: repeat(var(--song-length, 64), 25px);
     grid-template-rows: repeat(25, 25px);
     width: max-content;
     height: max-content;

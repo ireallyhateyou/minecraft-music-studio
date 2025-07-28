@@ -224,8 +224,11 @@ class NBSEditor {
         tickLabels.innerHTML = '';
         gridContainer.innerHTML = '';
         
-        // Generate tick labels (0-63)
-        for (let tick = 0; tick < 64; tick++) {
+        // Update CSS custom property for song length
+        document.documentElement.style.setProperty('--song-length', this.totalTicks);
+        
+        // Generate tick labels (0 to totalTicks-1)
+        for (let tick = 0; tick < this.totalTicks; tick++) {
             const tickLabel = document.createElement('div');
             tickLabel.className = 'tick-label';
             tickLabel.textContent = tick;
@@ -239,9 +242,9 @@ class NBSEditor {
             label.textContent = noteNames[i] || '';
             noteLabels.appendChild(label);
         }
-        // Generate grid cells (64x25 = 1600)
+        // Generate grid cells (totalTicks x 25)
         for (let i = 0; i < 25; i++) {
-            for (let tick = 0; tick < 64; tick++) {
+            for (let tick = 0; tick < this.totalTicks; tick++) {
                 const cell = document.createElement('div');
                 cell.className = 'note-cell';
                 cell.dataset.note = i;
@@ -352,6 +355,7 @@ class NBSEditor {
         // Show playhead when playing
         document.getElementById('playhead').style.display = 'block';
         
+        // Calculate tick duration: (60 seconds / BPM) * 1000ms / 4 ticks per beat
         const tickDuration = (60 / this.song.tempo) * 1000 / 4;
         this.updatePlayhead();
         
@@ -819,7 +823,7 @@ class NBSEditor {
         this.song.author = nbsSong.author || 'Unknown';
         this.song.originalAuthor = nbsSong.originalAuthor || '';
         this.song.description = nbsSong.description || '';
-        this.song.tempo = (nbsSong.tempo * 60) / 4; // Convert ticks per second to BPM
+        this.song.tempo = (nbsSong.tempo * 60) / 4; // Convert ticks per second to BPM (4 ticks per beat)
         this.song.timeSignature = nbsSong.timeSignature || 4;
         
         // Update UI elements
@@ -883,7 +887,7 @@ class NBSEditor {
         // Save state
         this.saveState();
         
-        console.log(`Imported song: ${this.song.name} with ${this.song.tracks.length} tracks`);
+        console.log(`Imported song: ${this.song.name} with ${this.song.tracks.length} tracks, tempo: ${this.song.tempo} BPM`);
     }
 
     // Add a helper to play a note with a specific instrument
