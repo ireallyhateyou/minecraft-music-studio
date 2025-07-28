@@ -64,16 +64,6 @@
         </div>
 
         <div class="piano-roll">
-            <div class="timeline">
-                <div class="timeline-markers" id="timelineMarkers">
-                    <!-- Tick markers will be populated by JS -->
-                </div>
-                <div class="time-display">
-                    <span id="currentTime">00:00:00</span>
-                    <span>/</span>
-                    <span id="totalTime">00:00:00</span>
-                </div>
-            </div>
             <div class="piano-roll-inner">
                 <div class="tick-labels"></div>
                 <div class="piano-keys"></div>
@@ -91,33 +81,6 @@
             <input type="text" id="originalAuthor" value="">
             <label for="songDescription">Description:</label>
             <textarea id="songDescription"></textarea>
-        </div>
-        
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="status-label">Instrument:</span>
-                <span id="currentInstrument">Harp</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Key:</span>
-                <span id="currentKey">C4</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Tick:</span>
-                <span id="currentTick">0</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Layer:</span>
-                <span id="currentLayer">1</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Selected:</span>
-                <span id="selectionCount">0/0</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Compatibility:</span>
-                <span id="compatibilityStatus">✓ Fully compatible</span>
-            </div>
         </div>
     </div>
     <script src="js/script.js"></script>

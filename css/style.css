@@ -19,79 +19,6 @@
     src: url('../assets/fonts/MinecraftBoldItalic-1y1e.otf') format('opentype');
 }
 
-/* Timeline Styles */
-.timeline {
-    background: #3a3a3a;
-    border: 2px solid #555;
-    border-bottom: none;
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: 'Minecraft Regular', monospace;
-    font-size: 14px;
-}
-
-.timeline-markers {
-    display: flex;
-    gap: 20px;
-    flex: 1;
-}
-
-.timeline-marker {
-    color: #ccc;
-    font-size: 12px;
-    min-width: 30px;
-    text-align: center;
-}
-
-.timeline-marker.major {
-    color: #fff;
-    font-weight: bold;
-}
-
-.time-display {
-    display: flex;
-    gap: 8px;
-    color: #fff;
-    font-family: 'Minecraft Bold', monospace;
-    font-size: 14px;
-}
-
-/* Status Bar Styles */
-.status-bar {
-    background: #2a2a2a;
-    border: 2px solid #555;
-    border-top: none;
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: 'Minecraft Regular', monospace;
-    font-size: 12px;
-    color: #ccc;
-}
-
-.status-item {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-}
-
-.status-label {
-    color: #888;
-    font-size: 11px;
-}
-
-.status-item span:last-child {
-    color: #fff;
-    font-family: 'Minecraft Bold', monospace;
-}
-
-#compatibilityStatus {
-    color: #4caf50;
-}
-
 body {
     font-family: 'Minecraft Regular', 'Courier New', monospace;
     background: #1a1a1a;
@@ -335,7 +262,20 @@ button:disabled {
         'piano-keys grid-container';
     width: max-content;
     background: transparent;
+    position: relative;
 }
+
+.playhead {
+    position: absolute;
+    top: 32px;
+    bottom: 0;
+    width: 3px;
+    background: red;
+    z-index: 10;
+    pointer-events: none;
+    left: 64px;
+}
+
 .corner-blank {
     grid-area: corner-blank;
     width: 56px;
@@ -405,32 +345,22 @@ button:disabled {
 
 .note-label {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     height: 25px;
-    background: #3a3a3a;
-    border: 1px solid #555;
-    color: #fff;
-    font-size: 10px;
+    min-width: 64px;
+    width: 64px;
+    max-width: 64px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffd;
+    background: #232323;
+    border-bottom: 1px solid #333;
+    padding-left: 8px;
+    padding-right: 0;
     font-family: 'Minecraft Regular', monospace;
-    text-align: center;
     user-select: none;
-    position: relative;
-}
-
-.note-label .note-name {
-    font-size: 9px;
-    color: #ccc;
-    line-height: 1;
-}
-
-.note-label .key-shortcut {
-    font-size: 8px;
-    color: #888;
-    font-family: 'Minecraft Bold', monospace;
-    line-height: 1;
-    margin-top: 1px;
+    letter-spacing: 1px;
 }
 
 .note-cell {
@@ -807,15 +737,16 @@ input[type="text"]:focus, textarea:focus {
     box-sizing: border-box;
 }
 
-.playhead {
-    position: absolute;
-    top: 32px;
-    bottom: 0;
-    width: 3px;
-    background: red;
-    z-index: 10;
-    pointer-events: none;
-    left: 64px;
+.piano-roll-inner {
+    display: grid;
+    grid-template-columns: 64px auto;
+    grid-template-rows: 32px auto;
+    grid-template-areas:
+        'corner-blank tick-labels'
+        'piano-keys grid-container';
+    width: max-content;
+    background: transparent;
+    position: relative;
 }
 
 .volume-control, .tempo-control {
