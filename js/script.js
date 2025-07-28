@@ -265,19 +265,36 @@ class NBSEditor {
         const shouldActivate = forceState !== null ? forceState : !track.notes[noteKey];
 
         if (shouldActivate) {
+            // Remove any existing notes on the same tick (one note per tick rule)
+            for (const existingKey in track.notes) {
+                const [, existingTick] = existingKey.split(',').map(Number);
+                if (existingTick === tick) {
+                    // Remove the existing note from the data
+                    delete track.notes[existingKey];
+                    
+                    // Remove the visual representation
+                    const existingCell = document.querySelector(`[data-note="${existingKey.split(',')[0]}"][data-tick="${tick}"]`);
+                    if (existingCell) {
+                        existingCell.classList.remove('active');
+                        existingCell.style.backgroundColor = '';
+                    }
+                }
+            }
+            
+            // Add the new note
             track.notes[noteKey] = {
                 instrument: track.instrument,
                 pitch: noteIndex
             };
             cell.classList.add('active');
             cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
-            this.playNote(noteIndex, track.instrument); // Pass the track's instrument
-            this.saveState(); // Save state after note is added
+            this.playNote(noteIndex, track.instrument);
+            this.saveState();
         } else {
             delete track.notes[noteKey];
             cell.classList.remove('active');
             cell.style.backgroundColor = '';
-            this.saveState(); // Save state after note is removed
+            this.saveState();
         }
     }
 
