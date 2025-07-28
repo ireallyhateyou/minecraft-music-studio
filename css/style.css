@@ -243,51 +243,47 @@ button:disabled {
 }
 
 .piano-roll {
-    overflow: auto;
-    display: inline-block;
-    padding: 0;
-    background: #1a1a1a;
-    border: 3px solid #555;
+    display: grid;
+    grid-template-areas: 
+        "corner-blank tick-labels"
+        "piano-keys grid-container";
+    grid-template-columns: 64px 1fr;
+    grid-template-rows: 32px 1fr;
+    background: #181818;
     border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     margin: 20px 0;
-    box-shadow: 0 4px 0 #2a2a2a;
+    min-height: 400px;
+    overflow: auto;
 }
 
 .piano-roll-inner {
-    display: grid;
-    grid-template-columns: 64px auto;
-    grid-template-rows: 32px auto;
-    grid-template-areas:
-        'corner-blank tick-labels'
-        'piano-keys grid-container';
-    width: max-content;
-    background: transparent;
     position: relative;
+    display: contents;
+    width: 100%;
+    height: 100%;
 }
 
 .playhead {
     position: absolute;
-    top: 32px;
+    top: 0;
     bottom: 0;
-    width: 3px;
-    background: red;
-    z-index: 10;
+    width: 2px;
+    background: #ffd700;
+    z-index: 100;
     pointer-events: none;
-    left: 64px;
+    box-shadow: 0 0 4px #ffd700;
+    transition: left 0.1s linear;
 }
 
 .corner-blank {
     grid-area: corner-blank;
-    width: 56px;
-    min-width: 56px;
-    max-width: 56px;
-    height: 32px;
-    background: #232323;
+    background: #181818;
     border-bottom: 2px solid #444;
     border-right: 2px solid #666;
-    margin: 0;
-    padding: 0;
+    box-shadow: 0 2px 0 #181818, 2px 0 0 #232323;
 }
+
 .tick-labels {
     grid-area: tick-labels;
     display: grid;
@@ -298,10 +294,11 @@ button:disabled {
     border-bottom: 2px solid #444;
     box-shadow: 0 2px 0 #181818;
 }
+
 .piano-keys {
     grid-area: piano-keys;
     display: grid;
-    grid-template-rows: repeat(25, 25px);
+    grid-template-rows: repeat(var(--note-range, 25), 25px);
     width: 64px;
     min-width: 64px;
     max-width: 64px;
@@ -311,11 +308,12 @@ button:disabled {
     margin: 0;
     padding: 0;
 }
+
 .grid-container {
     grid-area: grid-container;
     display: grid;
     grid-template-columns: repeat(var(--song-length, 64), 25px);
-    grid-template-rows: repeat(25, 25px);
+    grid-template-rows: repeat(var(--note-range, 25), 25px);
     width: max-content;
     height: max-content;
     background: #232323;
@@ -698,7 +696,7 @@ input[type="text"]:focus, textarea:focus {
 /* Landscape mobile optimization */
 @media (max-width: 768px) and (orientation: landscape) {
     .piano-roll {
-        max-height: 60vh;
+        min-height: 300px;
         overflow: auto;
     }
     
@@ -895,5 +893,50 @@ label {
     }
     .tick-label {
         font-size: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .piano-roll {
+        max-height: none;
+        height: auto;
+        margin: 10px 0;
+    }
+    
+    .piano-keys {
+        width: 60px;
+        min-width: 60px;
+        max-width: 60px;
+    }
+    
+    .note-label {
+        font-size: 18px;
+        padding-left: 6px;
+        min-width: 60px;
+        width: 60px;
+        max-width: 60px;
+        height: 30px;
+    }
+    
+    .grid-container {
+        grid-template-columns: repeat(var(--song-length, 64), 30px);
+        grid-template-rows: repeat(var(--note-range, 25), 30px);
+    }
+    
+    .note-cell {
+        width: 26px;
+        height: 26px;
+        border-radius: 4px;
+    }
+    
+    .tick-labels {
+        grid-template-columns: repeat(var(--song-length, 64), 30px);
+        height: 32px;
+        font-size: 16px;
+    }
+    
+    .tick-label {
+        height: 32px;
+        font-size: 16px;
     }
 }
