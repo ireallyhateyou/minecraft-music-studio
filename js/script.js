@@ -213,6 +213,88 @@ class NBSEditor {
             option.textContent = instrument.name;
             selector.appendChild(option);
         });
+        
+        // Generate timeline markers
+        this.generateTimelineMarkers();
+        
+        // Initialize status bar
+        this.updateStatusBar();
+    }
+
+    generateTimelineMarkers() {
+        const timelineMarkers = document.getElementById('timelineMarkers');
+        if (!timelineMarkers) return;
+        
+        timelineMarkers.innerHTML = '';
+        
+        // Generate markers every 4 ticks, with major markers every 16 ticks
+        for (let tick = 0; tick <= this.totalTicks; tick += 4) {
+            const marker = document.createElement('div');
+            marker.className = 'timeline-marker';
+            marker.textContent = tick;
+            
+            if (tick % 16 === 0) {
+                marker.classList.add('major');
+            }
+            
+            timelineMarkers.appendChild(marker);
+        }
+    }
+
+    updateStatusBar() {
+        const currentInstrument = document.getElementById('currentInstrument');
+        const currentKey = document.getElementById('currentKey');
+        const currentTickElement = document.getElementById('currentTick');
+        const currentLayer = document.getElementById('currentLayer');
+        const selectionCount = document.getElementById('selectionCount');
+        
+        if (currentInstrument) {
+            const track = this.song.tracks[this.currentTrackIndex];
+            const instrument = this.instruments[track.instrument];
+            currentInstrument.textContent = instrument ? instrument.name : 'Harp';
+        }
+        
+        if (currentKey) {
+            const noteNames = this.getCurrentNoteNames();
+            currentKey.textContent = noteNames[12] || 'C4'; // Default to middle C
+        }
+        
+        if (currentTickElement) {
+            currentTickElement.textContent = this.currentTick;
+        }
+        
+        if (currentLayer) {
+            currentLayer.textContent = this.currentTrackIndex + 1;
+        }
+        
+        if (selectionCount) {
+            const totalNotes = Object.keys(this.song.tracks[this.currentTrackIndex].notes).length;
+            selectionCount.textContent = `0/${totalNotes}`;
+        }
+    }
+
+    updateTimeDisplay() {
+        const currentTimeElement = document.getElementById('currentTime');
+        const totalTimeElement = document.getElementById('totalTime');
+        
+        if (currentTimeElement) {
+            const currentSeconds = (this.currentTick / 20) * (120 / this.song.tempo);
+            const currentTime = this.formatTime(currentSeconds);
+            currentTimeElement.textContent = currentTime;
+        }
+        
+        if (totalTimeElement) {
+            const totalSeconds = (this.totalTicks / 20) * (120 / this.song.tempo);
+            const totalTime = this.formatTime(totalSeconds);
+            totalTimeElement.textContent = totalTime;
+        }
+    }
+
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        const milliseconds = Math.floor((seconds % 1) * 1000);
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
     }
 
     generateNoteGrid() {
@@ -231,14 +313,30 @@ class NBSEditor {
             tickLabel.textContent = tick;
             tickLabels.appendChild(tickLabel);
         }
-        // Generate note labels (25 rows)
+        
+        // Generate note labels (25 rows) with keyboard shortcuts
         const noteNames = this.getCurrentNoteNames();
+        const keyMap = {
+            'q': 0, 'w': 1, 'e': 2, 'r': 3, 't': 4, 'y': 5, 'u': 6, 'i': 7, 'o': 8, 'p': 9,
+            'a': 10, 's': 11, 'd': 12, 'f': 13, 'g': 14, 'h': 15, 'j': 16, 'k': 17, 'l': 18,
+            'z': 19, 'x': 20, 'c': 21, 'v': 22, 'b': 23, 'n': 24
+        };
+        
         for (let i = 0; i < 25; i++) {
             const label = document.createElement('div');
             label.className = 'note-label';
-            label.textContent = noteNames[i] || '';
+            
+            // Find the key for this note index
+            const key = Object.keys(keyMap).find(k => keyMap[k] === i);
+            const noteName = noteNames[i] || '';
+            
+            label.innerHTML = `
+                <div class="note-name">${noteName}</div>
+                <div class="key-shortcut">${key ? key.toUpperCase() : ''}</div>
+            `;
             noteLabels.appendChild(label);
         }
+        
         // Generate grid cells (64x25 = 1600)
         for (let i = 0; i < 25; i++) {
             for (let tick = 0; tick < 64; tick++) {
@@ -249,6 +347,7 @@ class NBSEditor {
                 gridContainer.appendChild(cell);
             }
         }
+        
         // Restore visual state of notes after regenerating grid
         this.restoreNoteVisuals();
     }
@@ -368,6 +467,10 @@ class NBSEditor {
         // Move playhead linearly based on current tick position
         const playheadLeft = 60 + 10 + (this.currentTick * 25);
         playhead.style.left = `${playheadLeft}px`;
+        
+        // Update time display and status bar
+        this.updateTimeDisplay();
+        this.updateStatusBar();
     }
 
     // In playTick, use the current track for now
@@ -381,28 +484,29 @@ class NBSEditor {
         if (tick === this.totalTicks - 1) {
             // Song is finished, hide playhead and stop playback immediately
             document.getElementById('playhead').style.display = 'none';
-            this.pause();
-            return; // Don't play any notes, just stop
+            this.stop();
+            return;
         }
         
-        // Play notes at this tick for all tracks
-        this.song.tracks.forEach((track, trackIdx) => {
-            Object.entries(track.notes).forEach(([key, note]) => {
+        // Play notes for all tracks at this tick
+        for (const track of this.song.tracks) {
+            for (const key in track.notes) {
                 const [noteIndex, noteTick] = key.split(',').map(Number);
-                if (parseInt(noteTick) === tick) {
-                    // Play the note using the track's instrument and volume
+                if (noteTick === tick) {
+                    // Play the note
                     this.playNoteWithTrackVolume(noteIndex, track.instrument, track.volume);
-                    // Highlight the note cell if it's the current track
-                    if (trackIdx === this.currentTrackIndex) {
-                        const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
-                        if (cell) {
-                            cell.classList.add('playing');
-                            setTimeout(() => cell.classList.remove('playing'), 100);
-                        }
+                    
+                    // Highlight the cell as playing
+                    const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
+                    if (cell) {
+                        cell.classList.add('playing');
                     }
                 }
-            });
-        });
+            }
+        }
+        
+        // Update status bar with current tick
+        this.updateStatusBar();
     }
 
     pause() {
@@ -493,6 +597,9 @@ class NBSEditor {
         if (!selector) return;
         const track = this.song.tracks[this.currentTrackIndex];
         selector.value = track.instrument;
+        
+        // Update status bar when instrument changes
+        this.updateStatusBar();
     }
 
     setupEventListeners() {
@@ -651,20 +758,48 @@ class NBSEditor {
             }
         }, { once: true });
 
-        // Keyboard shortcuts
+        // Add keyboard shortcuts for note playing
         document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            const key = e.key.toLowerCase();
+            const noteNames = this.getCurrentNoteNames();
+            
             // Undo: Ctrl+Z or Cmd+Z
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
                 this.undo();
+                return;
             }
+            
             // Redo: Ctrl+Y or Cmd+Shift+Z
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
                 e.preventDefault();
                 this.redo();
+                return;
             }
-            // Space to play/pause
-            if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+            
+            // Map keyboard keys to note indices
+            const keyMap = {
+                'q': 0, 'w': 1, 'e': 2, 'r': 3, 't': 4, 'y': 5, 'u': 6, 'i': 7, 'o': 8, 'p': 9,
+                'a': 10, 's': 11, 'd': 12, 'f': 13, 'g': 14, 'h': 15, 'j': 16, 'k': 17, 'l': 18,
+                'z': 19, 'x': 20, 'c': 21, 'v': 22, 'b': 23, 'n': 24
+            };
+            
+            if (keyMap[key] !== undefined && keyMap[key] < noteNames.length) {
+                e.preventDefault();
+                const noteIndex = keyMap[key];
+                this.playNote(noteIndex);
+                
+                // Update status bar with current key
+                const currentKey = document.getElementById('currentKey');
+                if (currentKey) {
+                    currentKey.textContent = noteNames[noteIndex] || 'C4';
+                }
+            }
+            
+            // Space bar to play/pause
+            if (key === ' ') {
                 e.preventDefault();
                 if (this.isPlaying) {
                     this.pause();
@@ -672,8 +807,10 @@ class NBSEditor {
                     this.play();
                 }
             }
+            
             // Escape to stop
-            if (e.code === 'Escape') {
+            if (key === 'escape') {
+                e.preventDefault();
                 this.stop();
             }
         });
