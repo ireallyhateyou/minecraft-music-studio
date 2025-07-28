@@ -166,6 +166,140 @@ class Song {
         // Custom instruments (none)
         writeByte(0);
     }
+
+    static fromArrayBuffer(arrayBuffer) {
+        const dataView = new DataView(arrayBuffer);
+        let currentByte = 0;
+
+        const readString = () => {
+            if (currentByte + 4 > dataView.byteLength) {
+                throw new Error('Unexpected end of file while reading string length');
+            }
+            const length = dataView.getInt32(currentByte, true);
+            currentByte += 4;
+            
+            if (length < 0 || currentByte + length > dataView.byteLength) {
+                throw new Error('Invalid string length or unexpected end of file');
+            }
+            
+            let str = '';
+            for (let i = 0; i < length; i++) {
+                str += String.fromCharCode(dataView.getUint8(currentByte));
+                currentByte++;
+            }
+            return str;
+        };
+
+        const readByte = () => {
+            if (currentByte >= dataView.byteLength) {
+                throw new Error('Unexpected end of file while reading byte');
+            }
+            const byte = dataView.getInt8(currentByte, true);
+            currentByte++;
+            return byte;
+        };
+
+        const readShort = () => {
+            if (currentByte + 2 > dataView.byteLength) {
+                throw new Error('Unexpected end of file while reading short');
+            }
+            const short = dataView.getInt16(currentByte, true);
+            currentByte += 2;
+            return short;
+        };
+
+        const readInt = () => {
+            if (currentByte + 4 > dataView.byteLength) {
+                throw new Error('Unexpected end of file while reading int');
+            }
+            const int = dataView.getInt32(currentByte, true);
+            currentByte += 4;
+            return int;
+        };
+
+        // Create new song
+        const song = new Song();
+
+        try {
+            // Read header
+            const format = readShort();
+            const nbsVersion = readByte();
+            const vanillaInstrumentCount = readByte();
+            song.size = readShort();
+            const layerCount = readShort();
+            song.name = readString();
+            song.author = readString();
+            song.originalAuthor = readString();
+            song.description = readString();
+            song.tempo = readShort() / 100; // Convert back from ticks per second * 100
+            readByte(); // Auto-saving enabled
+            readByte(); // Auto-saving duration
+            song.timeSignature = readByte();
+            song.minutesSpent = readInt();
+            song.leftClicks = readInt();
+            song.rightClicks = readInt();
+            song.blocksAdded = readInt();
+            song.blocksRemoved = readInt();
+            song.midiName = readString();
+            readByte(); // Loop on/off
+            readByte(); // Max loop count
+            readShort(); // Loop start tick
+
+            // Read notes
+            let currentTick = -1;
+            while (currentByte < dataView.byteLength) {
+                const tickJump = readShort();
+                if (tickJump === 0) break; // End of notes
+
+                currentTick += tickJump;
+                let currentLayer = -1;
+
+                while (currentByte < dataView.byteLength) {
+                    const layerJump = readShort();
+                    if (layerJump === 0) break; // End of tick
+
+                    currentLayer += layerJump;
+                    const instrumentId = readByte();
+                    const key = readByte();
+                    const velocity = readByte();
+                    const panning = readByte();
+                    const pitch = readShort();
+
+                    // Ensure layer exists
+                    while (song.layers.length <= currentLayer) {
+                        song.addLayer();
+                    }
+
+                    const layer = song.layers[currentLayer];
+                    const note = layer.setNote(currentTick, key, song.instruments[instrumentId]);
+                    note.velocity = velocity;
+                    note.panning = panning;
+                    note.pitch = pitch;
+                }
+            }
+
+            // Read layers
+            for (let i = 0; i < layerCount && currentByte < dataView.byteLength; i++) {
+                if (i < song.layers.length) {
+                    song.layers[i].name = readString();
+                    readByte(); // Layer lock
+                    song.layers[i].volume = readByte() / 100; // Convert to 0-1 range
+                    readByte(); // Layer stereo
+                }
+            }
+
+            // Read custom instruments (skip for now)
+            if (currentByte < dataView.byteLength) {
+                const customInstrumentCount = readByte();
+            }
+
+        } catch (error) {
+            console.error('Error parsing NBS file:', error);
+            throw new Error(`Failed to parse NBS file: ${error.message}`);
+        }
+
+        return song;
+    }
 }
 
 class Layer {

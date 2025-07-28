@@ -603,6 +603,7 @@ class NBSEditor {
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         document.getElementById('clearBtn').addEventListener('click', () => this.clear());
         document.getElementById('exportBtn').addEventListener('click', () => this.exportSong());
+        document.getElementById('importBtn').addEventListener('click', () => this.importSong());
         document.getElementById('fullViewBtn').addEventListener('click', () => this.toggleFullView());
         document.getElementById('undoBtn').addEventListener('click', () => this.undo());
         document.getElementById('redoBtn').addEventListener('click', () => this.redo());
@@ -721,6 +722,151 @@ class NBSEditor {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    // Add import functionality
+    importSong() {
+        // Create a file input element
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.nbs';
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const arrayBuffer = e.target.result;
+                    const nbsSong = Song.fromArrayBuffer(arrayBuffer);
+                    
+                    // Convert NBS song to editor format
+                    this.loadSongFromNBS(nbsSong);
+                    
+                    // Clean up
+                    document.body.removeChild(fileInput);
+                } catch (error) {
+                    console.error('Error importing NBS file:', error);
+                    
+                    // Provide more specific error messages
+                    let errorMessage = 'Error importing NBS file. ';
+                    if (error.message.includes('Unexpected end of file')) {
+                        errorMessage += 'The file appears to be corrupted or incomplete.';
+                    } else if (error.message.includes('Invalid string length')) {
+                        errorMessage += 'The file format is not recognized as a valid NBS file.';
+                    } else if (error.message.includes('Failed to parse NBS file')) {
+                        errorMessage += 'The file format is not supported or corrupted.';
+                    } else {
+                        errorMessage += 'Please make sure it\'s a valid NBS file.';
+                    }
+                    
+                    // Use console.log instead of alert for sandboxed environments
+                    console.log(errorMessage);
+                    
+                    // Try to show a more user-friendly error
+                    const audioNotice = document.getElementById('audioNotice');
+                    if (audioNotice) {
+                        audioNotice.innerHTML = `<p>${errorMessage}</p>`;
+                        audioNotice.style.display = 'block';
+                        audioNotice.style.background = '#e74c3c';
+                        audioNotice.style.borderColor = '#c0392b';
+                        
+                        // Hide the error after 5 seconds
+                        setTimeout(() => {
+                            audioNotice.style.display = 'none';
+                        }, 5000);
+                    }
+                    
+                    document.body.removeChild(fileInput);
+                }
+            };
+            
+            reader.onerror = () => {
+                alert('Error reading file.');
+                document.body.removeChild(fileInput);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+        
+        // Trigger file selection
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+
+    loadSongFromNBS(nbsSong) {
+        // Update song metadata
+        this.song.name = nbsSong.name || 'Imported Song';
+        this.song.author = nbsSong.author || 'Unknown';
+        this.song.originalAuthor = nbsSong.originalAuthor || '';
+        this.song.description = nbsSong.description || '';
+        this.song.tempo = (nbsSong.tempo * 60) / 4; // Convert ticks per second to BPM
+        this.song.timeSignature = nbsSong.timeSignature || 4;
+        
+        // Update UI elements
+        document.getElementById('songName').value = this.song.name;
+        document.getElementById('songAuthor').value = this.song.author;
+        document.getElementById('originalAuthor').value = this.song.originalAuthor;
+        document.getElementById('songDescription').value = this.song.description;
+        document.getElementById('tempoSlider').value = this.song.tempo;
+        document.getElementById('tempoInput').value = this.song.tempo;
+        document.getElementById('tempoValue').textContent = 'BPM';
+        
+        // Clear existing tracks
+        this.song.tracks = [];
+        
+        // Convert layers to tracks
+        nbsSong.layers.forEach((layer, layerIndex) => {
+            const track = {
+                instrument: layer.instrument?.id || 0,
+                notes: {},
+                volume: Math.round(layer.volume * 100)
+            };
+            
+            // Convert notes from NBS format to editor format
+            for (const tick in layer.notes) {
+                const note = layer.notes[tick];
+                if (note) {
+                    // Convert Minecraft key (33-57) to note index (0-24)
+                    const noteIndex = Math.max(0, Math.min(24, note.key - 33));
+                    const noteKey = `${noteIndex},${tick}`;
+                    track.notes[noteKey] = {
+                        instrument: note.instrument?.id || 0,
+                        pitch: noteIndex
+                    };
+                }
+            }
+            
+            this.song.tracks.push(track);
+        });
+        
+        // If no tracks were created, add a default one
+        if (this.song.tracks.length === 0) {
+            this.song.tracks.push({
+                instrument: 0,
+                notes: {},
+                volume: 100
+            });
+        }
+        
+        // Update total ticks based on song size
+        this.totalTicks = Math.max(64, nbsSong.size);
+        
+        // Reset current track index
+        this.currentTrackIndex = 0;
+        
+        // Update UI
+        this.generateNoteGrid();
+        this.renderTrackTabs();
+        this.updateInstrumentSelector();
+        this.updateVolumeSlider();
+        
+        // Save state
+        this.saveState();
+        
+        console.log(`Imported song: ${this.song.name} with ${this.song.tracks.length} tracks`);
     }
 
     // Add a helper to play a note with a specific instrument
