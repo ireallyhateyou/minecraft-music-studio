@@ -415,14 +415,39 @@ class NBSEditor {
         console.log('Tick duration (ms):', tickDuration);
         console.log('Ticks per second:', 1000 / tickDuration);
         console.log('Beats per second:', (1000 / tickDuration) / 4);
+        console.log('Total ticks in song:', this.totalTicks);
+        console.log('Expected song duration (seconds):', (this.totalTicks / 4) / (this.song.tempo / 60));
         console.log('=== End Playhead Debug ===');
         
         this.updatePlayhead();
         
+        let intervalCount = 0;
+        let lastIntervalTime = Date.now();
         this.playInterval = setInterval(() => {
+            intervalCount++;
+            const currentTime = Date.now();
+            const timeSinceLastInterval = currentTime - lastIntervalTime;
+            lastIntervalTime = currentTime;
+            
+            console.log(`=== Interval Debug #${intervalCount} ===`);
+            console.log(`Interval triggered at: ${currentTime}`);
+            console.log(`Time since last interval: ${timeSinceLastInterval}ms (expected: ${tickDuration}ms)`);
+            console.log(`Timing accuracy: ${Math.abs(timeSinceLastInterval - tickDuration)}ms off`);
+            console.log(`Current tick before update: ${this.currentTick}`);
+            
             this.playTick(this.currentTick);
-            this.currentTick = (this.currentTick + 1) % this.totalTicks;
+            this.currentTick++;
+            console.log(`Current tick after update: ${this.currentTick}`);
+            
+            // Stop if we've reached the end
+            if (this.currentTick >= this.totalTicks) {
+                console.log('Reached end of song in interval, stopping');
+                this.stop();
+                return;
+            }
+            
             this.updatePlayhead();
+            console.log(`=== End Interval Debug #${intervalCount} ===`);
         }, tickDuration);
     }
 
@@ -450,39 +475,127 @@ class NBSEditor {
         // Start at 64px (left edge of grid container) and move 25px per tick
         const playheadLeft = 64 + (this.currentTick * 25);
         playhead.style.left = `${playheadLeft}px`;
+        
+        console.log(`=== Playhead Update Debug ===`);
+        console.log(`Current tick: ${this.currentTick}`);
+        console.log(`Playhead left position: ${playheadLeft}px`);
+        console.log(`Total ticks: ${this.totalTicks}`);
+        console.log(`Is playing: ${this.isPlaying}`);
+        console.log(`=== End Playhead Update ===`);
+        
+        // Sync scrollbar with playhead position
+        this.syncScrollbarWithPlayhead();
+    }
+    
+    syncScrollbarWithPlayhead() {
+        const pianoRoll = document.querySelector('.piano-roll');
+        if (!pianoRoll) return;
+        
+        // Don't auto-scroll if user is manually scrolling
+        if (this.isUserScrolling && this.isUserScrolling()) {
+            console.log('Skipping auto-scroll - user is manually scrolling');
+            return;
+        }
+        
+        // Don't auto-scroll if not playing (to avoid interference with manual positioning)
+        if (!this.isPlaying) {
+            console.log('Skipping auto-scroll - not currently playing');
+            return;
+        }
+        
+        // Calculate the scroll position based on playhead position
+        const gridContainer = document.getElementById('gridContainer');
+        if (!gridContainer) return;
+        
+        // Calculate the center position of the playhead relative to the grid
+        const playheadCenter = 64 + (this.currentTick * 25) + 12.5; // 12.5 is half of 25px cell width
+        
+        // Calculate the scroll position to center the playhead
+        const pianoRollWidth = pianoRoll.clientWidth;
+        const scrollLeft = playheadCenter - (pianoRollWidth / 2);
+        
+        // Apply smooth scrolling to the piano roll
+        pianoRoll.scrollTo({
+            left: Math.max(0, scrollLeft),
+            behavior: 'smooth'
+        });
+        
+        console.log(`Auto-scrolled to center playhead at tick ${this.currentTick}`);
+    }
+    
+    updatePlayheadFromScroll() {
+        const pianoRoll = document.querySelector('.piano-roll');
+        if (!pianoRoll) return;
+        
+        // Don't update playhead position during playback to maintain consistent BPM
+        if (this.isPlaying) {
+            console.log('Skipping playhead update from scroll during playback');
+            return;
+        }
+        
+        // Calculate the center of the visible area
+        const pianoRollWidth = pianoRoll.clientWidth;
+        const scrollLeft = pianoRoll.scrollLeft;
+        const centerPosition = scrollLeft + (pianoRollWidth / 2);
+        
+        // Convert center position to tick position
+        // Subtract 64px (piano keys width) and divide by 25px per tick
+        const tickPosition = Math.max(0, Math.floor((centerPosition - 64) / 25));
+        
+        // Update current tick if it's different
+        if (tickPosition !== this.currentTick) {
+            this.currentTick = Math.min(tickPosition, this.totalTicks - 1);
+            this.updatePlayhead();
+            console.log(`Updated playhead from scroll: tick ${tickPosition} (only when not playing)`);
+        }
     }
 
     // In playTick, use the current track for now
     playTick(tick) {
+        console.log(`=== PlayTick Debug ===`);
+        console.log(`Playing tick: ${tick}`);
+        console.log(`Total ticks: ${this.totalTicks}`);
+        console.log(`Is playing: ${this.isPlaying}`);
+        
         // Reset all playing states
         document.querySelectorAll('.note-cell.playing').forEach(cell => {
             cell.classList.remove('playing');
         });
         
-        // Check if we've reached the end of the song first
-        if (tick === this.totalTicks - 1) {
-            // Song is finished, hide playhead and stop playback immediately
+        // Check if we've reached the end of the song
+        if (tick >= this.totalTicks) {
+            console.log('Reached end of song, stopping playback');
+            // Song is finished, hide playhead and stop playback
             document.getElementById('playhead').style.display = 'none';
             this.stop();
             return;
         }
         
+        let notesPlayed = 0;
         // Play notes for all tracks at this tick
         for (const track of this.song.tracks) {
             for (const key in track.notes) {
                 const [noteIndex, noteTick] = key.split(',').map(Number);
                 if (noteTick === tick) {
+                    console.log(`Playing note: index=${noteIndex}, tick=${tick}, instrument=${track.instrument}`);
                     // Play the note
                     this.playNoteWithTrackVolume(noteIndex, track.instrument, track.volume);
+                    notesPlayed++;
                     
                     // Highlight the cell as playing
                     const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
                     if (cell) {
                         cell.classList.add('playing');
+                        console.log(`Highlighted cell for note ${noteIndex} at tick ${tick}`);
+                    } else {
+                        console.warn(`Could not find cell for note ${noteIndex} at tick ${tick}`);
                     }
                 }
             }
         }
+        
+        console.log(`Played ${notesPlayed} notes at tick ${tick}`);
+        console.log(`=== End PlayTick Debug ===`);
     }
 
     pause() {
@@ -525,6 +638,7 @@ class NBSEditor {
             tab.addEventListener('click', () => {
                 this.currentTrackIndex = idx;
                 this.generateNoteGrid();
+                this.restoreNoteVisuals();
                 this.renderTrackTabs();
                 this.updateInstrumentSelector();
                 this.updateVolumeSlider();
@@ -542,6 +656,7 @@ class NBSEditor {
                         this.currentTrackIndex = this.song.tracks.length - 1;
                     }
                     this.generateNoteGrid();
+                    this.restoreNoteVisuals();
                     this.renderTrackTabs();
                     this.updateInstrumentSelector();
                     this.updateVolumeSlider();
@@ -559,6 +674,7 @@ class NBSEditor {
             this.song.tracks.push({ instrument: 0, notes: {}, volume: 100 });
             this.currentTrackIndex = this.song.tracks.length - 1;
             this.generateNoteGrid();
+            this.restoreNoteVisuals();
             this.renderTrackTabs();
             this.updateInstrumentSelector();
             this.updateVolumeSlider();
@@ -731,6 +847,33 @@ class NBSEditor {
                 this.audioContext.resume();
             }
         }, { once: true });
+        
+        // Add scroll event listener to sync playhead with manual scrolling
+        const pianoRoll = document.querySelector('.piano-roll');
+        if (pianoRoll) {
+            let scrollTimeout;
+            let isUserScrolling = false;
+            
+            pianoRoll.addEventListener('scroll', () => {
+                // Mark that user is scrolling
+                isUserScrolling = true;
+                
+                // Clear previous timeout
+                clearTimeout(scrollTimeout);
+                
+                // Set a timeout to update playhead position after scrolling stops
+                // Only update if not currently playing to maintain consistent BPM
+                scrollTimeout = setTimeout(() => {
+                    if (!this.isPlaying) {
+                        this.updatePlayheadFromScroll();
+                    }
+                    isUserScrolling = false;
+                }, 100);
+            });
+            
+            // Store the scrolling state for use in syncScrollbarWithPlayhead
+            this.isUserScrolling = () => isUserScrolling;
+        }
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
@@ -981,14 +1124,28 @@ class NBSEditor {
         // Update total ticks based on song size
         let songLength = Math.max(64, nbsSong.size);
         
-        // Find the highest tick position that has notes
+        // Find the highest and lowest tick positions that have notes
         let maxTickWithNotes = 0;
+        let minTickWithNotes = Infinity;
+        let allTicks = [];
+        
+        console.log('=== Tick Analysis Debug ===');
         for (const track of this.song.tracks) {
+            console.log('Analyzing track notes:', track.notes);
             for (const key in track.notes) {
                 const [, tick] = key.split(',').map(Number);
                 maxTickWithNotes = Math.max(maxTickWithNotes, tick);
+                minTickWithNotes = Math.min(minTickWithNotes, tick);
+                allTicks.push(tick);
+                console.log(`Found note at tick: ${tick}`);
             }
         }
+        
+        console.log('All tick positions found:', allTicks.sort((a, b) => a - b));
+        console.log('Min tick with notes:', minTickWithNotes);
+        console.log('Max tick with notes:', maxTickWithNotes);
+        console.log('Tick range:', maxTickWithNotes - minTickWithNotes + 1);
+        console.log('=== End Tick Analysis ===');
         
         // Use the maximum of song size or highest tick with notes
         songLength = Math.max(songLength, maxTickWithNotes + 1);
@@ -1018,6 +1175,9 @@ class NBSEditor {
         this.renderTrackTabs();
         this.updateInstrumentSelector();
         this.updateVolumeSlider();
+        
+        // Restore note visuals after grid generation
+        this.restoreNoteVisuals();
         
         // Save state
         this.saveState();
@@ -1162,6 +1322,46 @@ class NBSEditor {
         console.log('Track notes:', track.notes);
         console.log('Number of notes to restore:', Object.keys(track.notes).length);
         
+        // Also show overall song statistics
+        console.log('=== Overall Song Statistics ===');
+        console.log('Total tracks:', this.song.tracks.length);
+        let overallEarliestTick = Infinity;
+        let overallLatestTick = 0;
+        let totalNotes = 0;
+        
+        this.song.tracks.forEach((t, idx) => {
+            const trackNotes = Object.keys(t.notes).length;
+            totalNotes += trackNotes;
+            console.log(`Track ${idx}: ${trackNotes} notes`);
+            
+            Object.entries(t.notes).forEach(([key, note]) => {
+                const [, tick] = key.split(',').map(Number);
+                overallEarliestTick = Math.min(overallEarliestTick, tick);
+                overallLatestTick = Math.max(overallLatestTick, tick);
+            });
+        });
+        
+        console.log('Overall earliest tick:', overallEarliestTick);
+        console.log('Overall latest tick:', overallLatestTick);
+        console.log('Total notes across all tracks:', totalNotes);
+        console.log('=== End Overall Song Statistics ===');
+        
+        // Find earliest and latest notes
+        let earliestTick = Infinity;
+        let latestTick = 0;
+        let allTicks = [];
+        
+        Object.entries(track.notes).forEach(([key, note]) => {
+            const [noteIndex, tick] = key.split(',').map(Number);
+            earliestTick = Math.min(earliestTick, tick);
+            latestTick = Math.max(latestTick, tick);
+            allTicks.push(tick);
+        });
+        
+        console.log('Earliest tick in track:', earliestTick);
+        console.log('Latest tick in track:', latestTick);
+        console.log('All ticks in track:', allTicks.sort((a, b) => a - b));
+        
         let restoredCount = 0;
         Object.entries(track.notes).forEach(([key, note]) => {
             const [noteIndex, tick] = key.split(',').map(Number);
@@ -1238,6 +1438,7 @@ class NBSEditor {
     restoreState(state) {
         this.song = JSON.parse(JSON.stringify(state));
         this.generateNoteGrid();
+        this.restoreNoteVisuals();
         this.renderTrackTabs();
         this.updateInstrumentSelector();
         this.updateVolumeSlider();
