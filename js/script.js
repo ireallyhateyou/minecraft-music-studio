@@ -220,17 +220,15 @@ class NBSEditor {
         const noteLabels = document.querySelector('.piano-keys');
         const tickLabels = document.querySelector('.tick-labels');
         
-        console.log('=== Grid Generation Debug ===');
-        console.log('totalTicks:', this.totalTicks);
-        console.log('Grid container:', gridContainer);
-        
         noteLabels.innerHTML = '';
         tickLabels.innerHTML = '';
         gridContainer.innerHTML = '';
         
+        // Use the full song length for the visual grid
+        const visualTicks = this.totalTicks;
+        
         // Update CSS custom property for song length
-        document.documentElement.style.setProperty('--song-length', this.totalTicks);
-        console.log('Set CSS --song-length to:', this.totalTicks);
+        document.documentElement.style.setProperty('--song-length', visualTicks);
         
         // Analyze the song to find the actual note range used
         let minNote = 24; // Start with highest note (F#5)
@@ -260,24 +258,20 @@ class NBSEditor {
         maxNote = Math.min(24, maxNote + 2);
         
         const noteRange = maxNote - minNote + 1;
-        console.log('Note range:', minNote, 'to', maxNote, '(', noteRange, 'notes)');
         
         // Update CSS custom property for note range
         document.documentElement.style.setProperty('--note-range', noteRange);
-        console.log('Set CSS --note-range to:', noteRange);
         
-        // Generate tick labels (0 to totalTicks-1)
-        console.log('Generating', this.totalTicks, 'tick labels...');
-        for (let tick = 0; tick < this.totalTicks; tick++) {
+        // Generate tick labels
+        for (let tick = 0; tick < visualTicks; tick++) {
             const tickLabel = document.createElement('div');
             tickLabel.className = 'tick-label';
             tickLabel.textContent = tick;
             tickLabels.appendChild(tickLabel);
         }
         
-        // Generate note labels (only the range we need)
+        // Generate note labels
         const noteNames = this.getCurrentNoteNames();
-        console.log('Generating', noteRange, 'note labels...');
         for (let i = minNote; i <= maxNote; i++) {
             const label = document.createElement('div');
             label.className = 'note-label';
@@ -285,25 +279,32 @@ class NBSEditor {
             noteLabels.appendChild(label);
         }
         
-        // Generate grid cells (totalTicks x noteRange)
-        console.log('Generating', this.totalTicks * noteRange, 'grid cells...');
-        for (let i = minNote; i <= maxNote; i++) {
-            for (let tick = 0; tick < this.totalTicks; tick++) {
+        // Generate grid cells in row-major order (tick first, then note)
+        console.log(`DEBUG: Generating grid with ${visualTicks} ticks x ${noteRange} notes = ${visualTicks * noteRange} cells`);
+        let cellCount = 0;
+        for (let tick = 0; tick < visualTicks; tick++) {
+            for (let i = minNote; i <= maxNote; i++) {
                 const cell = document.createElement('div');
                 cell.className = 'note-cell';
                 cell.dataset.note = i;
                 cell.dataset.tick = tick;
                 gridContainer.appendChild(cell);
+                cellCount++;
             }
         }
+        console.log(`DEBUG: Created ${cellCount} cells, expected ${visualTicks * noteRange}`);
         
         // Update CSS grid template rows to match the new note range
         const gridContainerStyle = gridContainer.style;
         gridContainerStyle.gridTemplateRows = `repeat(${noteRange}, 25px)`;
         
-        console.log('Grid generation complete. Total cells:', gridContainer.children.length);
-        console.log('Grid dimensions:', this.totalTicks, 'x', noteRange);
-        console.log('=== End Grid Debug ===');
+        // Debug grid dimensions and CSS properties
+        console.log(`DEBUG: Grid dimensions - Expected: ${visualTicks}x${noteRange}, Actual: ${Math.round(gridContainer.offsetWidth/25)}x${Math.round(gridContainer.offsetHeight/25)}`);
+        console.log(`DEBUG: Grid container size - Width: ${gridContainer.offsetWidth}px, Height: ${gridContainer.offsetHeight}px`);
+        console.log(`DEBUG: CSS --song-length: ${getComputedStyle(document.documentElement).getPropertyValue('--song-length')}`);
+        console.log(`DEBUG: CSS --note-range: ${getComputedStyle(document.documentElement).getPropertyValue('--note-range')}`);
+        console.log(`DEBUG: Grid template columns: ${getComputedStyle(gridContainer).gridTemplateColumns}`);
+        console.log(`DEBUG: Grid template rows: ${getComputedStyle(gridContainer).gridTemplateRows}`);
         
         // Restore visual state of notes after regenerating grid
         this.restoreNoteVisuals();
@@ -318,6 +319,18 @@ class NBSEditor {
         const tick = parseInt(cell.dataset.tick);
         const noteKey = `${noteIndex},${tick}`;
         const track = this.song.tracks[this.currentTrackIndex];
+        
+        // Check if there's already a note from a different track in full view mode
+        if (this.fullViewMode) {
+            const existingTrackIndex = cell.dataset.trackIndex;
+            if (existingTrackIndex && parseInt(existingTrackIndex) !== this.currentTrackIndex) {
+                // In full view mode, show which track owns this note
+                console.log(`Note at ${noteIndex},${tick} belongs to track ${existingTrackIndex}, not current track ${this.currentTrackIndex}`);
+                // Don't allow editing notes from other tracks in full view mode
+                return;
+            }
+        }
+        
         const shouldActivate = forceState !== null ? forceState : !track.notes[noteKey];
 
         if (shouldActivate) {
@@ -333,6 +346,7 @@ class NBSEditor {
                     if (existingCell) {
                         existingCell.classList.remove('active');
                         existingCell.style.backgroundColor = '';
+                        existingCell.removeAttribute('data-track-index');
                     }
                 }
             }
@@ -344,12 +358,14 @@ class NBSEditor {
             };
             cell.classList.add('active');
             cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+            cell.dataset.trackIndex = this.currentTrackIndex;
             this.playNote(noteIndex, track.instrument);
             this.saveState();
         } else {
             delete track.notes[noteKey];
             cell.classList.remove('active');
             cell.style.backgroundColor = '';
+            cell.removeAttribute('data-track-index');
             this.saveState();
         }
     }
@@ -1021,10 +1037,7 @@ class NBSEditor {
     }
 
     loadSongFromNBS(nbsSong) {
-        console.log('=== NBS Import Debug ===');
-        console.log('NBS Song object:', nbsSong);
-        console.log('NBS Song layers:', nbsSong.layers);
-        console.log('NBS Song instruments:', nbsSong.instruments);
+        console.log(`DEBUG: Importing NBS song - Size: ${nbsSong.size} ticks, Layers: ${nbsSong.layers.length}`);
         
         // Update song metadata
         this.song.name = nbsSong.name || 'Imported Song';
@@ -1048,13 +1061,6 @@ class NBSEditor {
         this.song.tempo = Math.round(calculatedBPM);
         this.song.timeSignature = nbsSong.timeSignature || 4;
         
-        console.log('Original NBS tempo (ticks per second):', nbsSong.tempo);
-        console.log('Calculated BPM (before limit):', (nbsSong.tempo * 60) / 4);
-        console.log('Final BPM (after limit):', this.song.tempo);
-        console.log('Original song size (ticks):', nbsSong.size);
-        console.log('Song duration (seconds):', (nbsSong.size / 4) / (this.song.tempo / 60));
-        console.log('Song duration (minutes):', ((nbsSong.size / 4) / (this.song.tempo / 60)) / 60);
-        
         // Update UI elements
         document.getElementById('songName').value = this.song.name;
         document.getElementById('songAuthor').value = this.song.author;
@@ -1067,34 +1073,24 @@ class NBSEditor {
         // Clear existing tracks
         this.song.tracks = [];
         
-        console.log('Processing', nbsSong.layers.length, 'layers...');
-        
         // Convert layers to tracks
         nbsSong.layers.forEach((layer, layerIndex) => {
-            console.log(`Processing layer ${layerIndex}:`, layer);
-            console.log(`Layer notes:`, layer.notes);
-            
             const track = {
                 instrument: layer.instrument?.id || 0,
                 notes: {},
                 volume: Math.round(layer.volume * 100)
             };
             
-            console.log(`Track ${layerIndex} instrument:`, track.instrument);
-            console.log(`Track ${layerIndex} volume:`, track.volume);
-            
             // Convert notes from NBS format to editor format
             let noteCount = 0;
+            
             for (const tick in layer.notes) {
                 const note = layer.notes[tick];
-                console.log(`Layer ${layerIndex}, Tick ${tick}, Note:`, note);
                 
                 if (note) {
                     // Convert Minecraft key (33-57) to note index (0-24)
                     const noteIndex = Math.max(0, Math.min(24, note.key - 33));
                     const noteKey = `${noteIndex},${tick}`;
-                    
-                    console.log(`Converting note: key=${note.key}, noteIndex=${noteIndex}, noteKey=${noteKey}`);
                     
                     track.notes[noteKey] = {
                         instrument: note.instrument?.id || 0,
@@ -1104,12 +1100,8 @@ class NBSEditor {
                 }
             }
             
-            console.log(`Track ${layerIndex} has ${noteCount} notes:`, track.notes);
             this.song.tracks.push(track);
         });
-        
-        console.log('Total tracks created:', this.song.tracks.length);
-        console.log('All tracks:', this.song.tracks);
         
         // If no tracks were created, add a default one
         if (this.song.tracks.length === 0) {
@@ -1127,48 +1119,23 @@ class NBSEditor {
         // Find the highest and lowest tick positions that have notes
         let maxTickWithNotes = 0;
         let minTickWithNotes = Infinity;
-        let allTicks = [];
         
-        console.log('=== Tick Analysis Debug ===');
         for (const track of this.song.tracks) {
-            console.log('Analyzing track notes:', track.notes);
             for (const key in track.notes) {
                 const [, tick] = key.split(',').map(Number);
                 maxTickWithNotes = Math.max(maxTickWithNotes, tick);
                 minTickWithNotes = Math.min(minTickWithNotes, tick);
-                allTicks.push(tick);
-                console.log(`Found note at tick: ${tick}`);
             }
         }
-        
-        console.log('All tick positions found:', allTicks.sort((a, b) => a - b));
-        console.log('Min tick with notes:', minTickWithNotes);
-        console.log('Max tick with notes:', maxTickWithNotes);
-        console.log('Tick range:', maxTickWithNotes - minTickWithNotes + 1);
-        console.log('=== End Tick Analysis ===');
         
         // Use the maximum of song size or highest tick with notes
         songLength = Math.max(songLength, maxTickWithNotes + 1);
         
-        console.log('Original NBS size:', nbsSong.size);
-        console.log('Max tick with notes:', maxTickWithNotes);
-        console.log('Calculated song length:', songLength);
-        
-        // Limit song length to reasonable range (max 1000 ticks for better performance)
-        if (songLength > 1000) {
-            console.warn('Song too long, limiting to 1000 ticks');
-            songLength = 1000;
-        }
-        
         this.totalTicks = songLength;
-        console.log('Final totalTicks:', this.totalTicks);
-        console.log('Grid will have', this.totalTicks, 'columns');
-        console.log('Grid width will be', this.totalTicks * 25, 'pixels');
+        console.log(`DEBUG: Final totalTicks: ${this.totalTicks}, Grid will be ${this.totalTicks * 25}px wide`);
         
         // Reset current track index
         this.currentTrackIndex = 0;
-        
-        console.log('About to generate note grid...');
         
         // Update UI
         this.generateNoteGrid();
@@ -1182,8 +1149,17 @@ class NBSEditor {
         // Save state
         this.saveState();
         
-        console.log(`Imported song: ${this.song.name} with ${this.song.tracks.length} tracks, tempo: ${this.song.tempo} BPM`);
-        console.log('=== End NBS Import Debug ===');
+        // Log track statistics after processing
+        this.song.tracks.forEach((t, idx) => {
+            console.log(`DEBUG: Track ${idx} (Instrument: ${t.instrument}) has ${Object.keys(t.notes).length} notes.`);
+        });
+        
+        // Set full view as default after importing
+        this.fullViewMode = true;
+        const fullViewBtn = document.getElementById('fullViewBtn');
+        if (fullViewBtn) {
+            fullViewBtn.textContent = '👁️ Track View';
+        }
     }
 
     // Add a helper to play a note with a specific instrument
@@ -1315,73 +1291,50 @@ class NBSEditor {
 
     // Restore visual state of notes after grid regeneration
     restoreNoteVisuals() {
-        console.log('=== Restore Note Visuals Debug ===');
-        const track = this.song.tracks[this.currentTrackIndex];
-        console.log('Current track index:', this.currentTrackIndex);
-        console.log('Current track:', track);
-        console.log('Track notes:', track.notes);
-        console.log('Number of notes to restore:', Object.keys(track.notes).length);
-        
-        // Also show overall song statistics
-        console.log('=== Overall Song Statistics ===');
-        console.log('Total tracks:', this.song.tracks.length);
-        let overallEarliestTick = Infinity;
-        let overallLatestTick = 0;
-        let totalNotes = 0;
-        
-        this.song.tracks.forEach((t, idx) => {
-            const trackNotes = Object.keys(t.notes).length;
-            totalNotes += trackNotes;
-            console.log(`Track ${idx}: ${trackNotes} notes`);
-            
-            Object.entries(t.notes).forEach(([key, note]) => {
-                const [, tick] = key.split(',').map(Number);
-                overallEarliestTick = Math.min(overallEarliestTick, tick);
-                overallLatestTick = Math.max(overallLatestTick, tick);
-            });
-        });
-        
-        console.log('Overall earliest tick:', overallEarliestTick);
-        console.log('Overall latest tick:', overallLatestTick);
-        console.log('Total notes across all tracks:', totalNotes);
-        console.log('=== End Overall Song Statistics ===');
-        
-        // Find earliest and latest notes
-        let earliestTick = Infinity;
-        let latestTick = 0;
-        let allTicks = [];
-        
-        Object.entries(track.notes).forEach(([key, note]) => {
-            const [noteIndex, tick] = key.split(',').map(Number);
-            earliestTick = Math.min(earliestTick, tick);
-            latestTick = Math.max(latestTick, tick);
-            allTicks.push(tick);
-        });
-        
-        console.log('Earliest tick in track:', earliestTick);
-        console.log('Latest tick in track:', latestTick);
-        console.log('All ticks in track:', allTicks.sort((a, b) => a - b));
-        
         let restoredCount = 0;
-        Object.entries(track.notes).forEach(([key, note]) => {
-            const [noteIndex, tick] = key.split(',').map(Number);
-            console.log(`Looking for note: noteIndex=${noteIndex}, tick=${tick}`);
-            
-            const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
-            console.log(`Found cell:`, cell);
-            
-            if (cell) {
-                cell.classList.add('active');
-                cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
-                restoredCount++;
-                console.log(`Restored note at ${noteIndex},${tick}`);
-            } else {
-                console.warn(`Could not find cell for note at ${noteIndex},${tick}`);
-            }
-        });
         
-        console.log(`Restored ${restoredCount} notes out of ${Object.keys(track.notes).length}`);
-        console.log('=== End Restore Note Visuals Debug ===');
+        if (this.fullViewMode) {
+            // Full view: Show notes from all tracks
+            this.song.tracks.forEach((track, trackIndex) => {
+                Object.entries(track.notes).forEach(([key, note]) => {
+                    const [noteIndex, tick] = key.split(',').map(Number);
+                    
+                    const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
+                    
+                    if (cell) {
+                        cell.classList.add('active');
+                        cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+                        // Add track index as data attribute for identification
+                        cell.dataset.trackIndex = trackIndex;
+                        restoredCount++;
+                    } else {
+                        console.warn(`Could not find cell for note at ${noteIndex},${tick} from track ${trackIndex}`);
+                    }
+                });
+            });
+            
+            console.log(`DEBUG: Full view - Restored ${restoredCount} notes from all tracks`);
+        } else {
+            // Track view: Show only current track's notes
+            const track = this.song.tracks[this.currentTrackIndex];
+            
+            Object.entries(track.notes).forEach(([key, note]) => {
+                const [noteIndex, tick] = key.split(',').map(Number);
+                
+                const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
+                
+                if (cell) {
+                    cell.classList.add('active');
+                    cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+                    cell.dataset.trackIndex = this.currentTrackIndex;
+                    restoredCount++;
+                } else {
+                    console.warn(`Could not find cell for note at ${noteIndex},${tick}`);
+                }
+            });
+            
+            console.log(`DEBUG: Track view - Restored ${restoredCount} notes out of ${Object.keys(track.notes).length} for Track ${this.currentTrackIndex}`);
+        }
     }
 
 

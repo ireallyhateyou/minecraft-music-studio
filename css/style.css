@@ -421,6 +421,25 @@ button:disabled {
     box-shadow: 0 2px 0 #333;
 }
 
+/* Full view mode: Show track ownership with subtle border */
+.note-cell.active[data-track-index] {
+    position: relative;
+}
+
+.note-cell.active[data-track-index]::after {
+    content: attr(data-track-index);
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font-size: 8px;
+    padding: 1px 2px;
+    border-radius: 2px;
+    font-family: 'Minecraft Regular', monospace;
+    pointer-events: none;
+}
+
 .note-cell.playing {
     animation: pulse 0.3s;
     z-index: 10;
@@ -693,9 +712,9 @@ input[type="text"]:focus, textarea:focus {
     }
     
     .grid-container {
-        grid-template-columns: repeat(64, 28px);
-        grid-template-rows: repeat(25, 28px);
-        min-width: 1792px;
+        grid-template-columns: repeat(var(--song-length, 64), 28px);
+        grid-template-rows: repeat(var(--note-range, 25), 28px);
+        min-width: max-content;
     }
     
     .note-cell {
@@ -792,10 +811,10 @@ input[type="text"]:focus, textarea:focus {
 
 .grid-container {
     display: grid;
-    grid-template-columns: repeat(64, 25px);
-    grid-template-rows: repeat(25, 25px);
+    grid-template-columns: repeat(var(--song-length, 64), 25px);
+    grid-template-rows: repeat(var(--note-range, 25), 25px);
     width: max-content;
-    min-width: 1600px;
+    min-width: max-content;
     box-sizing: border-box;
 }
 
@@ -934,6 +953,8 @@ label {
     /* Cap at 1200px for ultra-wide screens */
     max-width: 1200px;
   }
+  
+
   .tick-label {
     font-size: 13px;
   }
