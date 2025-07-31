@@ -235,8 +235,21 @@ class NBSEditor {
         let maxNote = 0;  // Start with lowest note (F#3)
         let hasNotes = false;
         
-        // Check all tracks for notes
-        for (const track of this.song.tracks) {
+        if (this.fullViewMode) {
+            // In full view, check all tracks for notes
+            for (const track of this.song.tracks) {
+                for (const key in track.notes) {
+                    const [noteIndex] = key.split(',').map(Number);
+                    if (noteIndex >= 0 && noteIndex <= 24) {
+                        minNote = Math.min(minNote, noteIndex);
+                        maxNote = Math.max(maxNote, noteIndex);
+                        hasNotes = true;
+                    }
+                }
+            }
+        } else {
+            // In track view, only check current track
+            const track = this.song.tracks[this.currentTrackIndex];
             for (const key in track.notes) {
                 const [noteIndex] = key.split(',').map(Number);
                 if (noteIndex >= 0 && noteIndex <= 24) {
@@ -279,11 +292,11 @@ class NBSEditor {
             noteLabels.appendChild(label);
         }
         
-        // Generate grid cells in row-major order (tick first, then note)
+        // Generate grid cells in column-major order (note first, then tick) to match CSS Grid layout
         console.log(`DEBUG: Generating grid with ${visualTicks} ticks x ${noteRange} notes = ${visualTicks * noteRange} cells`);
         let cellCount = 0;
-        for (let tick = 0; tick < visualTicks; tick++) {
-            for (let i = minNote; i <= maxNote; i++) {
+        for (let i = minNote; i <= maxNote; i++) {
+            for (let tick = 0; tick < visualTicks; tick++) {
                 const cell = document.createElement('div');
                 cell.className = 'note-cell';
                 cell.dataset.note = i;
@@ -437,34 +450,43 @@ class NBSEditor {
         
         this.updatePlayhead();
         
-        let intervalCount = 0;
-        let lastIntervalTime = Date.now();
-        this.playInterval = setInterval(() => {
-            intervalCount++;
-            const currentTime = Date.now();
-            const timeSinceLastInterval = currentTime - lastIntervalTime;
-            lastIntervalTime = currentTime;
+        // Use more precise timing for musical playback
+        let startTime = this.audioContext.currentTime;
+        let nextTickTime = startTime;
+        
+        const scheduleNextTick = () => {
+            if (!this.isPlaying) return;
             
-            console.log(`=== Interval Debug #${intervalCount} ===`);
-            console.log(`Interval triggered at: ${currentTime}`);
-            console.log(`Time since last interval: ${timeSinceLastInterval}ms (expected: ${tickDuration}ms)`);
-            console.log(`Timing accuracy: ${Math.abs(timeSinceLastInterval - tickDuration)}ms off`);
-            console.log(`Current tick before update: ${this.currentTick}`);
+            // Schedule the next tick
+            const tickTime = nextTickTime;
+            nextTickTime += tickDuration / 1000; // Convert to seconds
             
-            this.playTick(this.currentTick);
-            this.currentTick++;
-            console.log(`Current tick after update: ${this.currentTick}`);
+            // Schedule the tick slightly ahead of time for better accuracy
+            const scheduleTime = tickTime - 0.05; // 50ms ahead
             
-            // Stop if we've reached the end
-            if (this.currentTick >= this.totalTicks) {
-                console.log('Reached end of song in interval, stopping');
-                this.stop();
-                return;
+            if (this.audioContext.currentTime >= scheduleTime) {
+                // Execute immediately if we're behind schedule
+                this.playTick(this.currentTick);
+                this.currentTick++;
+                
+                if (this.currentTick >= this.totalTicks) {
+                    console.log('Reached end of song, stopping');
+                    this.stop();
+                    return;
+                }
+                
+                this.updatePlayhead();
+                
+                // Schedule next tick
+                setTimeout(scheduleNextTick, Math.max(0, (nextTickTime - this.audioContext.currentTime) * 1000));
+            } else {
+                // Schedule for the future
+                setTimeout(scheduleNextTick, Math.max(0, (scheduleTime - this.audioContext.currentTime) * 1000));
             }
-            
-            this.updatePlayhead();
-            console.log(`=== End Interval Debug #${intervalCount} ===`);
-        }, tickDuration);
+        };
+        
+        // Start the scheduling
+        scheduleNextTick();
     }
 
     // Find the next tick that has notes to play
@@ -593,9 +615,11 @@ class NBSEditor {
             for (const key in track.notes) {
                 const [noteIndex, noteTick] = key.split(',').map(Number);
                 if (noteTick === tick) {
-                    console.log(`Playing note: index=${noteIndex}, tick=${tick}, instrument=${track.instrument}`);
-                    // Play the note
-                    this.playNoteWithTrackVolume(noteIndex, track.instrument, track.volume);
+                    // Use the note's individual instrument, not the track's instrument
+                    const noteInstrument = track.notes[key].instrument;
+                    console.log(`Playing note: index=${noteIndex}, tick=${tick}, instrument=${noteInstrument} (${this.instruments[noteInstrument]?.name || 'Unknown'})`);
+                    // Play the note with its individual instrument
+                    this.playNoteWithTrackVolume(noteIndex, noteInstrument, track.volume);
                     notesPlayed++;
                     
                     // Highlight the cell as playing
@@ -616,7 +640,7 @@ class NBSEditor {
 
     pause() {
         this.isPlaying = false;
-        clearInterval(this.playInterval);
+        // No need to clear interval since we're using setTimeout now
         document.getElementById('playBtn').disabled = false;
         document.getElementById('pauseBtn').disabled = true;
         // Hide playhead when paused
@@ -928,7 +952,9 @@ class NBSEditor {
         nbsSong.author = this.song.author;
         nbsSong.originalAuthor = this.song.originalAuthor;
         nbsSong.description = this.song.description;
+        console.log(`DEBUG: Export - Current BPM: ${this.song.tempo}`);
         nbsSong.tempo = (this.song.tempo * 4) / 60; // Convert BPM to ticks per second
+        console.log(`DEBUG: Export - Calculated ticks per second: ${nbsSong.tempo}`);
         nbsSong.timeSignature = this.song.timeSignature;
         nbsSong.size = this.totalTicks;
         // Create a layer for each track and add notes
@@ -941,7 +967,9 @@ class NBSEditor {
                 const noteData = track.notes[key];
                 // Map note index to Minecraft key (F#3 to F#5 = keys 33-57)
                 const minecraftKey = 33 + noteIndex;
-                const instrument = nbsSong.instruments[track.instrument];
+                // Use the note's individual instrument, not the track's instrument
+                const noteInstrument = noteData.instrument;
+                const instrument = nbsSong.instruments[noteInstrument];
                 // Create the note
                 const note = layer.setNote(tick, minecraftKey, instrument);
                 // Set additional properties (NBS v4+)
@@ -1047,7 +1075,9 @@ class NBSEditor {
         
         // Convert NBS tempo (ticks per second) to BPM
         // NBS uses 4 ticks per beat, so: BPM = (ticks per second * 60) / 4
+        console.log(`DEBUG: NBS tempo (ticks per second): ${nbsSong.tempo}`);
         let calculatedBPM = (nbsSong.tempo * 60) / 4;
+        console.log(`DEBUG: Calculated BPM: ${calculatedBPM}`);
         
         // Limit BPM to reasonable range (20-300 BPM)
         if (calculatedBPM < 20) {
@@ -1059,6 +1089,7 @@ class NBSEditor {
         }
         
         this.song.tempo = Math.round(calculatedBPM);
+        console.log(`DEBUG: Final BPM: ${this.song.tempo}`);
         this.song.timeSignature = nbsSong.timeSignature || 4;
         
         // Update UI elements
@@ -1076,7 +1107,7 @@ class NBSEditor {
         // Convert layers to tracks
         nbsSong.layers.forEach((layer, layerIndex) => {
             const track = {
-                instrument: layer.instrument?.id || 0,
+                instrument: 0, // Default to harp, will be overridden by individual notes
                 notes: {},
                 volume: Math.round(layer.volume * 100)
             };
@@ -1092,10 +1123,21 @@ class NBSEditor {
                     const noteIndex = Math.max(0, Math.min(24, note.key - 33));
                     const noteKey = `${noteIndex},${tick}`;
                     
+                    // Preserve the individual note's instrument from NBS
+                    const noteInstrument = note.instrument?.id || 0;
+                    
                     track.notes[noteKey] = {
-                        instrument: note.instrument?.id || 0,
+                        instrument: noteInstrument,
                         pitch: noteIndex
                     };
+                    
+                    // Update track instrument to the most common instrument in this track
+                    // This is for display purposes only - individual notes keep their own instruments
+                    if (noteCount === 0) {
+                        track.instrument = noteInstrument;
+                    }
+                    
+                    console.log(`DEBUG: Track ${layerIndex}, Note ${noteIndex} at tick ${tick}: instrument=${noteInstrument} (${this.instruments[noteInstrument]?.name || 'Unknown'})`);
                     noteCount++;
                 }
             }
@@ -1160,6 +1202,10 @@ class NBSEditor {
         if (fullViewBtn) {
             fullViewBtn.textContent = '👁️ Track View';
         }
+        
+        // Regenerate grid to show all tracks in full view
+        this.generateNoteGrid();
+        this.restoreNoteVisuals();
     }
 
     // Add a helper to play a note with a specific instrument
@@ -1285,8 +1331,14 @@ class NBSEditor {
     
     // Get note names for current instrument
     getCurrentNoteNames() {
-        const track = this.song.tracks[this.currentTrackIndex];
-        return this.getNoteRangeForInstrument(track.instrument);
+        if (this.fullViewMode) {
+            // In full view, we need to get note names that cover all instruments
+            // Use a comprehensive range that covers all instruments
+            return this.noteNames;
+        } else {
+            const track = this.song.tracks[this.currentTrackIndex];
+            return this.getNoteRangeForInstrument(track.instrument);
+        }
     }
 
     // Restore visual state of notes after grid regeneration
@@ -1303,7 +1355,9 @@ class NBSEditor {
                     
                     if (cell) {
                         cell.classList.add('active');
-                        cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+                        // Use the note's individual instrument for color
+                        const noteInstrument = note.instrument;
+                        cell.style.backgroundColor = this.instruments[noteInstrument]?.color || '';
                         // Add track index as data attribute for identification
                         cell.dataset.trackIndex = trackIndex;
                         restoredCount++;
@@ -1325,7 +1379,9 @@ class NBSEditor {
                 
                 if (cell) {
                     cell.classList.add('active');
-                    cell.style.backgroundColor = this.instruments[track.instrument]?.color || '';
+                    // Use the note's individual instrument for color
+                    const noteInstrument = note.instrument;
+                    cell.style.backgroundColor = this.instruments[noteInstrument]?.color || '';
                     cell.dataset.trackIndex = this.currentTrackIndex;
                     restoredCount++;
                 } else {
