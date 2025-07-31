@@ -209,6 +209,45 @@ h1 {
     box-shadow: inset 0 2px 0 #4a4a4a;
 }
 
+/* Desktop layout: 2-column with buttons on left, settings on right */
+@media (min-width: 769px) {
+    .controls {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 20px;
+        align-items: start;
+    }
+    
+    .controls .button-section {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        width: fit-content;
+    }
+    
+    .controls .button-section .button-row {
+        display: contents;
+    }
+    
+    .controls .button-section .button-row button {
+        width: 100%;
+        min-width: 0;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    
+    .controls .settings-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 200px;
+    }
+}
+
 button, select, input, textarea {
     background: #4a4a4a;
     color: white;
@@ -221,6 +260,7 @@ button, select, input, textarea {
     transition: all 0.2s;
     box-shadow: 0 2px 0 #333;
     outline: none;
+    box-sizing: border-box;
 }
 
 button:hover, select:hover {
@@ -558,6 +598,25 @@ input[type="text"]:focus, textarea:focus {
         gap: 16px;
         align-items: stretch;
     }
+    .controls .button-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .controls .button-section .button-row {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .controls .button-section .button-row button {
+        flex: 1;
+    }
+    .controls .settings-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
     .controls > * {
         width: 100%;
         max-width: 100%;
@@ -873,6 +932,8 @@ label {
   .tick-label {
     font-size: 13px;
   }
+  
+
 }
 
 @media (max-width: 900px) {
