@@ -293,7 +293,6 @@ class NBSEditor {
         }
         
         // Generate grid cells in column-major order (note first, then tick) to match CSS Grid layout
-        console.log(`DEBUG: Generating grid with ${visualTicks} ticks x ${noteRange} notes = ${visualTicks * noteRange} cells`);
         let cellCount = 0;
         for (let i = minNote; i <= maxNote; i++) {
             for (let tick = 0; tick < visualTicks; tick++) {
@@ -305,19 +304,10 @@ class NBSEditor {
                 cellCount++;
             }
         }
-        console.log(`DEBUG: Created ${cellCount} cells, expected ${visualTicks * noteRange}`);
         
         // Update CSS grid template rows to match the new note range
         const gridContainerStyle = gridContainer.style;
         gridContainerStyle.gridTemplateRows = `repeat(${noteRange}, 25px)`;
-        
-        // Debug grid dimensions and CSS properties
-        console.log(`DEBUG: Grid dimensions - Expected: ${visualTicks}x${noteRange}, Actual: ${Math.round(gridContainer.offsetWidth/25)}x${Math.round(gridContainer.offsetHeight/25)}`);
-        console.log(`DEBUG: Grid container size - Width: ${gridContainer.offsetWidth}px, Height: ${gridContainer.offsetHeight}px`);
-        console.log(`DEBUG: CSS --song-length: ${getComputedStyle(document.documentElement).getPropertyValue('--song-length')}`);
-        console.log(`DEBUG: CSS --note-range: ${getComputedStyle(document.documentElement).getPropertyValue('--note-range')}`);
-        console.log(`DEBUG: Grid template columns: ${getComputedStyle(gridContainer).gridTemplateColumns}`);
-        console.log(`DEBUG: Grid template rows: ${getComputedStyle(gridContainer).gridTemplateRows}`);
         
         // Restore visual state of notes after regenerating grid
         this.restoreNoteVisuals();
@@ -437,55 +427,40 @@ class NBSEditor {
         // Show playhead when playing
         document.getElementById('playhead').style.display = 'block';
         
-        // Calculate tick duration: (60 seconds / BPM) * 1000ms / 4 ticks per beat
+        // Calculate tick duration in milliseconds
         const tickDuration = (60 / this.song.tempo) * 1000 / 4;
-        console.log('=== Playhead Debug ===');
-        console.log('BPM:', this.song.tempo);
-        console.log('Tick duration (ms):', tickDuration);
-        console.log('Ticks per second:', 1000 / tickDuration);
-        console.log('Beats per second:', (1000 / tickDuration) / 4);
-        console.log('Total ticks in song:', this.totalTicks);
-        console.log('Expected song duration (seconds):', (this.totalTicks / 4) / (this.song.tempo / 60));
-        console.log('=== End Playhead Debug ===');
+        
+        // Store start time for precise timing using audio context time
+        this.playStartTime = this.audioContext.currentTime;
+        this.playStartTick = this.currentTick;
         
         this.updatePlayhead();
         
-        // Use more precise timing for musical playback
-        let startTime = this.audioContext.currentTime;
-        let nextTickTime = startTime;
-        
+        // Use setTimeout for more precise timing
         const scheduleNextTick = () => {
             if (!this.isPlaying) return;
             
-            // Schedule the next tick
-            const tickTime = nextTickTime;
-            nextTickTime += tickDuration / 1000; // Convert to seconds
+            // Calculate expected tick based on elapsed audio time
+            const elapsedTime = this.audioContext.currentTime - this.playStartTime;
+            const expectedTick = this.playStartTick + Math.floor(elapsedTime / (tickDuration / 1000));
             
-            // Schedule the tick slightly ahead of time for better accuracy
-            const scheduleTime = tickTime - 0.05; // 50ms ahead
-            
-            if (this.audioContext.currentTime >= scheduleTime) {
-                // Execute immediately if we're behind schedule
+            // Only advance if we're at or past the expected tick
+            if (this.currentTick < expectedTick) {
                 this.playTick(this.currentTick);
                 this.currentTick++;
+                this.updatePlayhead();
                 
+                // Check if we've reached the end
                 if (this.currentTick >= this.totalTicks) {
-                    console.log('Reached end of song, stopping');
                     this.stop();
                     return;
                 }
-                
-                this.updatePlayhead();
-                
-                // Schedule next tick
-                setTimeout(scheduleNextTick, Math.max(0, (nextTickTime - this.audioContext.currentTime) * 1000));
-            } else {
-                // Schedule for the future
-                setTimeout(scheduleNextTick, Math.max(0, (scheduleTime - this.audioContext.currentTime) * 1000));
             }
+            
+            // Schedule next check
+            setTimeout(scheduleNextTick, tickDuration / 8); // Check 8 times per tick for better precision
         };
         
-        // Start the scheduling
         scheduleNextTick();
     }
 
@@ -514,13 +489,6 @@ class NBSEditor {
         const playheadLeft = 64 + (this.currentTick * 25);
         playhead.style.left = `${playheadLeft}px`;
         
-        console.log(`=== Playhead Update Debug ===`);
-        console.log(`Current tick: ${this.currentTick}`);
-        console.log(`Playhead left position: ${playheadLeft}px`);
-        console.log(`Total ticks: ${this.totalTicks}`);
-        console.log(`Is playing: ${this.isPlaying}`);
-        console.log(`=== End Playhead Update ===`);
-        
         // Sync scrollbar with playhead position
         this.syncScrollbarWithPlayhead();
     }
@@ -531,13 +499,11 @@ class NBSEditor {
         
         // Don't auto-scroll if user is manually scrolling
         if (this.isUserScrolling && this.isUserScrolling()) {
-            console.log('Skipping auto-scroll - user is manually scrolling');
             return;
         }
         
         // Don't auto-scroll if not playing (to avoid interference with manual positioning)
         if (!this.isPlaying) {
-            console.log('Skipping auto-scroll - not currently playing');
             return;
         }
         
@@ -557,8 +523,6 @@ class NBSEditor {
             left: Math.max(0, scrollLeft),
             behavior: 'smooth'
         });
-        
-        console.log(`Auto-scrolled to center playhead at tick ${this.currentTick}`);
     }
     
     updatePlayheadFromScroll() {
@@ -567,7 +531,6 @@ class NBSEditor {
         
         // Don't update playhead position during playback to maintain consistent BPM
         if (this.isPlaying) {
-            console.log('Skipping playhead update from scroll during playback');
             return;
         }
         
@@ -584,17 +547,11 @@ class NBSEditor {
         if (tickPosition !== this.currentTick) {
             this.currentTick = Math.min(tickPosition, this.totalTicks - 1);
             this.updatePlayhead();
-            console.log(`Updated playhead from scroll: tick ${tickPosition} (only when not playing)`);
         }
     }
 
     // In playTick, use the current track for now
     playTick(tick) {
-        console.log(`=== PlayTick Debug ===`);
-        console.log(`Playing tick: ${tick}`);
-        console.log(`Total ticks: ${this.totalTicks}`);
-        console.log(`Is playing: ${this.isPlaying}`);
-        
         // Reset all playing states
         document.querySelectorAll('.note-cell.playing').forEach(cell => {
             cell.classList.remove('playing');
@@ -602,7 +559,6 @@ class NBSEditor {
         
         // Check if we've reached the end of the song
         if (tick >= this.totalTicks) {
-            console.log('Reached end of song, stopping playback');
             // Song is finished, hide playhead and stop playback
             document.getElementById('playhead').style.display = 'none';
             this.stop();
@@ -617,7 +573,6 @@ class NBSEditor {
                 if (noteTick === tick) {
                     // Use the note's individual instrument, not the track's instrument
                     const noteInstrument = track.notes[key].instrument;
-                    console.log(`Playing note: index=${noteIndex}, tick=${tick}, instrument=${noteInstrument} (${this.instruments[noteInstrument]?.name || 'Unknown'})`);
                     // Play the note with its individual instrument
                     this.playNoteWithTrackVolume(noteIndex, noteInstrument, track.volume);
                     notesPlayed++;
@@ -626,16 +581,10 @@ class NBSEditor {
                     const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
                     if (cell) {
                         cell.classList.add('playing');
-                        console.log(`Highlighted cell for note ${noteIndex} at tick ${tick}`);
-                    } else {
-                        console.warn(`Could not find cell for note ${noteIndex} at tick ${tick}`);
                     }
                 }
             }
         }
-        
-        console.log(`Played ${notesPlayed} notes at tick ${tick}`);
-        console.log(`=== End PlayTick Debug ===`);
     }
 
     pause() {
@@ -952,9 +901,7 @@ class NBSEditor {
         nbsSong.author = this.song.author;
         nbsSong.originalAuthor = this.song.originalAuthor;
         nbsSong.description = this.song.description;
-        console.log(`DEBUG: Export - Current BPM: ${this.song.tempo}`);
         nbsSong.tempo = (this.song.tempo * 4) / 60; // Convert BPM to ticks per second
-        console.log(`DEBUG: Export - Calculated ticks per second: ${nbsSong.tempo}`);
         nbsSong.timeSignature = this.song.timeSignature;
         nbsSong.size = this.totalTicks;
         // Create a layer for each track and add notes
@@ -1065,7 +1012,6 @@ class NBSEditor {
     }
 
     loadSongFromNBS(nbsSong) {
-        console.log(`DEBUG: Importing NBS song - Size: ${nbsSong.size} ticks, Layers: ${nbsSong.layers.length}`);
         
         // Update song metadata
         this.song.name = nbsSong.name || 'Imported Song';
@@ -1075,9 +1021,7 @@ class NBSEditor {
         
         // Convert NBS tempo (ticks per second) to BPM
         // NBS uses 4 ticks per beat, so: BPM = (ticks per second * 60) / 4
-        console.log(`DEBUG: NBS tempo (ticks per second): ${nbsSong.tempo}`);
         let calculatedBPM = (nbsSong.tempo * 60) / 4;
-        console.log(`DEBUG: Calculated BPM: ${calculatedBPM}`);
         
         // Limit BPM to reasonable range (20-300 BPM)
         if (calculatedBPM < 20) {
@@ -1089,7 +1033,6 @@ class NBSEditor {
         }
         
         this.song.tempo = Math.round(calculatedBPM);
-        console.log(`DEBUG: Final BPM: ${this.song.tempo}`);
         this.song.timeSignature = nbsSong.timeSignature || 4;
         
         // Update UI elements
@@ -1137,7 +1080,7 @@ class NBSEditor {
                         track.instrument = noteInstrument;
                     }
                     
-                    console.log(`DEBUG: Track ${layerIndex}, Note ${noteIndex} at tick ${tick}: instrument=${noteInstrument} (${this.instruments[noteInstrument]?.name || 'Unknown'})`);
+
                     noteCount++;
                 }
             }
@@ -1174,7 +1117,7 @@ class NBSEditor {
         songLength = Math.max(songLength, maxTickWithNotes + 1);
         
         this.totalTicks = songLength;
-        console.log(`DEBUG: Final totalTicks: ${this.totalTicks}, Grid will be ${this.totalTicks * 25}px wide`);
+
         
         // Reset current track index
         this.currentTrackIndex = 0;
@@ -1191,10 +1134,7 @@ class NBSEditor {
         // Save state
         this.saveState();
         
-        // Log track statistics after processing
-        this.song.tracks.forEach((t, idx) => {
-            console.log(`DEBUG: Track ${idx} (Instrument: ${t.instrument}) has ${Object.keys(t.notes).length} notes.`);
-        });
+
         
         // Set full view as default after importing
         this.fullViewMode = true;
@@ -1226,7 +1166,9 @@ class NBSEditor {
         }
         
         source.buffer = buffer;
-        const semitones = noteIndex - 12;
+        // Calculate correct pitch: noteIndex 12 should be F♯4 (base pitch for Minecraft noteblocks)
+        // Since our noteNames array starts with F♯3 at index 0, we need to add 12 semitones to align with F♯4 at index 12
+        const semitones = (noteIndex - 12) + 12; // Minecraft noteblocks: 12 clicks = F♯4 (base pitch)
         source.playbackRate.value = Math.pow(2, semitones / 12);
         
         // Create a gain node for volume control
@@ -1257,7 +1199,9 @@ class NBSEditor {
         }
         
         source.buffer = buffer;
-        const semitones = noteIndex - 12;
+        // Calculate correct pitch: noteIndex 12 should be F♯4 (base pitch for Minecraft noteblocks)
+        // Since our noteNames array starts with F♯3 at index 0, we need to add 12 semitones to align with F♯4 at index 12
+        const semitones = (noteIndex - 12) + 12; // Minecraft noteblocks: 12 clicks = F♯4 (base pitch)
         source.playbackRate.value = Math.pow(2, semitones / 12);
         
         // Create a gain node for volume control
@@ -1367,7 +1311,7 @@ class NBSEditor {
                 });
             });
             
-            console.log(`DEBUG: Full view - Restored ${restoredCount} notes from all tracks`);
+
         } else {
             // Track view: Show only current track's notes
             const track = this.song.tracks[this.currentTrackIndex];
@@ -1389,7 +1333,7 @@ class NBSEditor {
                 }
             });
             
-            console.log(`DEBUG: Track view - Restored ${restoredCount} notes out of ${Object.keys(track.notes).length} for Track ${this.currentTrackIndex}`);
+
         }
     }
 
