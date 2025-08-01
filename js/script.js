@@ -419,6 +419,11 @@ class NBSEditor {
             this.audioContext.resume();
         }
         
+        // If the song has finished (currentTick >= totalTicks), start from the beginning
+        if (this.currentTick >= this.totalTicks) {
+            this.currentTick = 0;
+        }
+        
         this.isPlaying = true;
         document.getElementById('playBtn').disabled = true;
         document.getElementById('pauseBtn').disabled = false;
@@ -427,41 +432,31 @@ class NBSEditor {
         // Show playhead when playing
         document.getElementById('playhead').style.display = 'block';
         
-        // Calculate tick duration in milliseconds
-        const tickDuration = (60 / this.song.tempo) * 1000 / 4;
+        // Calculate tick duration in seconds (not milliseconds for audio scheduling)
+        const tickDuration = (60 / this.song.tempo) / 4; // seconds per tick
+        
+        // DEBUG: Log initial timing parameters
+        console.log(`DEBUG: Starting playback - Tempo: ${this.song.tempo} BPM, Tick duration: ${(tickDuration * 1000).toFixed(2)}ms, Current tick: ${this.currentTick}`);
         
         // Store start time for precise timing using audio context time
         this.playStartTime = this.audioContext.currentTime;
         this.playStartTick = this.currentTick;
         
+        // DEBUG: Log start times
+        console.log(`DEBUG: Play start time: ${this.playStartTime}s, Start tick: ${this.playStartTick}`);
+        
+        // DEBUG: Monitor audio context state
+        this.monitorAudioContextState();
+        
+        // Initialize scheduling variables
+        this.nextTickTime = this.playStartTime;
+        this.scheduleAheadTime = 0.1; // Schedule 100ms ahead
+        this.schedulerInterval = 10; // Check every 10ms for more responsive updates
+        
+        // Start the scheduler
+        this.scheduler();
+        
         this.updatePlayhead();
-        
-        // Use setTimeout for more precise timing
-        const scheduleNextTick = () => {
-            if (!this.isPlaying) return;
-            
-            // Calculate expected tick based on elapsed audio time
-            const elapsedTime = this.audioContext.currentTime - this.playStartTime;
-            const expectedTick = this.playStartTick + Math.floor(elapsedTime / (tickDuration / 1000));
-            
-            // Only advance if we're at or past the expected tick
-            if (this.currentTick < expectedTick) {
-                this.playTick(this.currentTick);
-                this.currentTick++;
-                this.updatePlayhead();
-                
-                // Check if we've reached the end
-                if (this.currentTick >= this.totalTicks) {
-                    this.stop();
-                    return;
-                }
-            }
-            
-            // Schedule next check
-            setTimeout(scheduleNextTick, tickDuration / 8); // Check 8 times per tick for better precision
-        };
-        
-        scheduleNextTick();
     }
 
     // Find the next tick that has notes to play
@@ -489,8 +484,10 @@ class NBSEditor {
         const playheadLeft = 64 + (this.currentTick * 25);
         playhead.style.left = `${playheadLeft}px`;
         
-        // Sync scrollbar with playhead position
-        this.syncScrollbarWithPlayhead();
+        // Sync scrollbar with playhead position (but less frequently to avoid jitter)
+        if (this.currentTick % 4 === 0) { // Only auto-scroll every 4 ticks
+            this.syncScrollbarWithPlayhead();
+        }
     }
     
     syncScrollbarWithPlayhead() {
@@ -499,6 +496,7 @@ class NBSEditor {
         
         // Don't auto-scroll if user is manually scrolling
         if (this.isUserScrolling && this.isUserScrolling()) {
+            console.log(`DEBUG: Auto-scroll skipped - user is manually scrolling`);
             return;
         }
         
@@ -517,6 +515,11 @@ class NBSEditor {
         // Calculate the scroll position to center the playhead
         const pianoRollWidth = pianoRoll.clientWidth;
         const scrollLeft = playheadCenter - (pianoRollWidth / 2);
+        
+        // DEBUG: Log auto-scroll calculations every 20 ticks to avoid spam
+        if (this.currentTick % 20 === 0) {
+            console.log(`DEBUG: Auto-scroll - Tick: ${this.currentTick}, Playhead center: ${playheadCenter}px, Scroll left: ${scrollLeft}px, Piano roll width: ${pianoRollWidth}px`);
+        }
         
         // Apply smooth scrolling to the piano roll
         pianoRoll.scrollTo({
@@ -550,46 +553,16 @@ class NBSEditor {
         }
     }
 
-    // In playTick, use the current track for now
-    playTick(tick) {
-        // Reset all playing states
-        document.querySelectorAll('.note-cell.playing').forEach(cell => {
-            cell.classList.remove('playing');
-        });
-        
-        // Check if we've reached the end of the song
-        if (tick >= this.totalTicks) {
-            // Song is finished, hide playhead and stop playback
-            document.getElementById('playhead').style.display = 'none';
-            this.stop();
-            return;
-        }
-        
-        let notesPlayed = 0;
-        // Play notes for all tracks at this tick
-        for (const track of this.song.tracks) {
-            for (const key in track.notes) {
-                const [noteIndex, noteTick] = key.split(',').map(Number);
-                if (noteTick === tick) {
-                    // Use the note's individual instrument, not the track's instrument
-                    const noteInstrument = track.notes[key].instrument;
-                    // Play the note with its individual instrument
-                    this.playNoteWithTrackVolume(noteIndex, noteInstrument, track.volume);
-                    notesPlayed++;
-                    
-                    // Highlight the cell as playing
-                    const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
-                    if (cell) {
-                        cell.classList.add('playing');
-                    }
-                }
-            }
-        }
-    }
+
 
     pause() {
+        console.log(`DEBUG: Pause called - Current tick: ${this.currentTick}, isPlaying: ${this.isPlaying}`);
         this.isPlaying = false;
-        // No need to clear interval since we're using setTimeout now
+        // Clear any scheduled timeouts
+        if (this.schedulerTimeout) {
+            clearTimeout(this.schedulerTimeout);
+            this.schedulerTimeout = null;
+        }
         document.getElementById('playBtn').disabled = false;
         document.getElementById('pauseBtn').disabled = true;
         // Hide playhead when paused
@@ -597,12 +570,20 @@ class NBSEditor {
     }
 
     stop() {
-        this.pause();
+        console.log(`DEBUG: Stop called - Current tick: ${this.currentTick}, isPlaying: ${this.isPlaying}`);
+        this.isPlaying = false;
+        // Clear any scheduled timeouts
+        if (this.schedulerTimeout) {
+            clearTimeout(this.schedulerTimeout);
+            this.schedulerTimeout = null;
+        }
         this.currentTick = 0;
-        this.updatePlayhead();
+        document.getElementById('playBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
         document.getElementById('stopBtn').disabled = true;
         // Hide playhead when stopped
         document.getElementById('playhead').style.display = 'none';
+        this.updatePlayhead();
     }
 
     // In clear, use the current track
@@ -810,9 +791,12 @@ class NBSEditor {
         });
 
         document.getElementById('tempoSlider').addEventListener('input', (e) => {
+            const oldTempo = this.song.tempo;
             this.song.tempo = parseInt(e.target.value);
             document.getElementById('tempoInput').value = this.song.tempo;
+            console.log(`DEBUG: Tempo changed from ${oldTempo} to ${this.song.tempo} BPM`);
             if (this.isPlaying) {
+                console.log(`DEBUG: Restarting playback due to tempo change`);
                 this.pause();
                 this.play();
             }
@@ -821,9 +805,12 @@ class NBSEditor {
         document.getElementById('tempoInput').addEventListener('input', (e) => {
             const newTempo = parseInt(e.target.value);
             if (newTempo >= 20 && newTempo <= 600) {
+                const oldTempo = this.song.tempo;
                 this.song.tempo = newTempo;
                 document.getElementById('tempoSlider').value = this.song.tempo;
+                console.log(`DEBUG: Tempo changed from ${oldTempo} to ${this.song.tempo} BPM`);
                 if (this.isPlaying) {
+                    console.log(`DEBUG: Restarting playback due to tempo change`);
                     this.pause();
                     this.play();
                 }
@@ -833,6 +820,7 @@ class NBSEditor {
         // Resume audio context on first interaction
         document.addEventListener('click', () => {
             if (this.audioContext && this.audioContext.state === 'suspended') {
+                console.log(`DEBUG: Resuming suspended audio context`);
                 this.audioContext.resume();
             }
         }, { once: true });
@@ -846,6 +834,7 @@ class NBSEditor {
             pianoRoll.addEventListener('scroll', () => {
                 // Mark that user is scrolling
                 isUserScrolling = true;
+                console.log(`DEBUG: User scrolling detected - tick: ${this.currentTick}, isPlaying: ${this.isPlaying}`);
                 
                 // Clear previous timeout
                 clearTimeout(scrollTimeout);
@@ -854,9 +843,13 @@ class NBSEditor {
                 // Only update if not currently playing to maintain consistent BPM
                 scrollTimeout = setTimeout(() => {
                     if (!this.isPlaying) {
+                        console.log(`DEBUG: User scrolling stopped - updating playhead position`);
                         this.updatePlayheadFromScroll();
+                    } else {
+                        console.log(`DEBUG: User scrolling stopped - skipping playhead update (playing)`);
                     }
                     isUserScrolling = false;
+                    console.log(`DEBUG: User scrolling state cleared`);
                 }, 100);
             });
             
@@ -1403,6 +1396,165 @@ class NBSEditor {
         
         undoBtn.disabled = this.historyIndex <= 0;
         redoBtn.disabled = this.historyIndex >= this.history.length - 1;
+    }
+
+    // Add a method to monitor audio context state
+    monitorAudioContextState() {
+        if (this.audioContext) {
+            const state = this.audioContext.state;
+            console.log(`DEBUG: Audio Context State: ${state}`);
+            if (state === 'suspended') {
+                console.warn('Audio context is suspended. Attempting to resume...');
+                this.audioContext.resume().then(() => {
+                    console.log('Audio context resumed successfully.');
+                }).catch(error => {
+                    console.error('Failed to resume audio context:', error);
+                });
+            } else if (state === 'closed') {
+                console.error('Audio context is closed. Cannot play audio.');
+                // Optionally, show an error message to the user or handle the situation
+            }
+        } else {
+            console.warn('Audio context is not initialized. Cannot monitor state.');
+        }
+    }
+
+    // Add performance monitoring for timing drift
+    monitorTimingPerformance() {
+        if (!this.isPlaying) return;
+        
+        const currentTime = performance.now();
+        const audioTime = this.audioContext.currentTime;
+        const expectedTime = this.playStartTime + (this.currentTick - this.playStartTick) * (60 / this.song.tempo) / 4;
+        
+        const drift = Math.abs(audioTime - expectedTime);
+        if (drift > 0.1) { // More than 100ms drift
+            console.warn(`DEBUG: Timing drift detected - Drift: ${(drift * 1000).toFixed(2)}ms, Audio time: ${audioTime.toFixed(3)}s, Expected: ${expectedTime.toFixed(3)}s`);
+        }
+        
+        // Schedule next performance check
+        setTimeout(() => this.monitorTimingPerformance(), 1000); // Check every second
+    }
+
+    // Proper audio scheduler using Web Audio API with lookahead
+    scheduler() {
+        if (!this.isPlaying) return;
+        
+        const currentTime = this.audioContext.currentTime;
+        const tickDuration = (60 / this.song.tempo) / 4; // seconds per tick
+        
+        // Schedule all ticks that should play within the lookahead window
+        while (this.nextTickTime < currentTime + this.scheduleAheadTime) {
+            // Schedule the tick
+            this.scheduleTick(this.currentTick, this.nextTickTime);
+            
+            // Advance to next tick
+            this.currentTick++;
+            this.nextTickTime += tickDuration;
+            
+            // Check if we've reached the end
+            if (this.currentTick >= this.totalTicks) {
+                console.log(`DEBUG: Playback finished at tick ${this.currentTick}`);
+                this.stop();
+                return;
+            }
+        }
+        
+        // Schedule next scheduler call
+        this.schedulerTimeout = setTimeout(() => this.scheduler(), this.schedulerInterval);
+    }
+    
+    // Schedule a specific tick to play at a specific time
+    scheduleTick(tick, time) {
+        // DEBUG: Log scheduling
+        if (tick % 20 === 0) {
+            console.log(`DEBUG: Scheduling tick ${tick} at time ${time.toFixed(3)}s`);
+        }
+        
+        // Reset all playing states
+        document.querySelectorAll('.note-cell.playing').forEach(cell => {
+            cell.classList.remove('playing');
+        });
+        
+        // Play notes for all tracks at this tick
+        let notesPlayed = 0;
+        for (const track of this.song.tracks) {
+            for (const key in track.notes) {
+                const [noteIndex, noteTick] = key.split(',').map(Number);
+                if (noteTick === tick) {
+                    // Use the note's individual instrument, not the track's instrument
+                    const noteInstrument = track.notes[key].instrument;
+                    // Schedule the note to play at the precise time
+                    this.scheduleNote(noteIndex, noteInstrument, track.volume, time);
+                    notesPlayed++;
+                    
+                    // Schedule visual highlighting at the same time
+                    this.scheduleNoteHighlight(noteIndex, tick, time);
+                }
+            }
+        }
+        
+        // Schedule playhead update at the same time
+        this.schedulePlayheadUpdate(tick, time);
+        
+        if (notesPlayed > 0) {
+            console.log(`DEBUG: Scheduled ${notesPlayed} notes for tick ${tick} at time ${time.toFixed(3)}s`);
+        }
+    }
+    
+    // Schedule a note to play at a specific time
+    scheduleNote(noteIndex, instrumentId, volume, time) {
+        // Create audio buffer source
+        const source = this.audioContext.createBufferSource();
+        const gainNode = this.audioContext.createGain();
+        
+        // Set the buffer
+        source.buffer = this.buffers.get(instrumentId); // Use this.buffers
+        
+        // Calculate correct pitch: noteIndex 12 should be F♯4 (base pitch for Minecraft noteblocks)
+        // Since our noteNames array starts with F♯3 at index 0, we need to add 12 semitones to align with F♯4 at index 12
+        const semitones = (noteIndex - 12) + 12; // Minecraft noteblocks: 12 clicks = F♯4 (base pitch)
+        source.playbackRate.value = Math.pow(2, semitones / 12);
+        
+        // Set volume
+        gainNode.gain.setValueAtTime(0, time);
+        gainNode.gain.linearRampToValueAtTime(volume / 100, time + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+        
+        // Connect nodes
+        source.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        // Schedule playback
+        source.start(time);
+        source.stop(time + 0.5);
+    }
+    
+    // Schedule playhead update at a specific time
+    schedulePlayheadUpdate(tick, time) {
+        // Update playhead immediately for visual consistency
+        // The audio timing is handled separately, so we can update visuals immediately
+        if (this.isPlaying) {
+            this.currentTick = tick;
+            this.updatePlayhead();
+            
+            // DEBUG: Log playhead updates every 20 ticks
+            if (tick % 20 === 0) {
+                console.log(`DEBUG: Playhead update - Tick: ${tick}, Time: ${time.toFixed(3)}s, Audio time: ${this.audioContext.currentTime.toFixed(3)}s`);
+            }
+        }
+    }
+    
+    // Schedule note highlighting at a specific time
+    scheduleNoteHighlight(noteIndex, tick, time) {
+        // Highlight immediately for visual consistency
+        // The audio timing is handled separately, so we can update visuals immediately
+        if (this.isPlaying) {
+            const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
+            if (cell) {
+                cell.classList.add('playing');
+            }
+        }
     }
 }
 
