@@ -18,6 +18,16 @@
             <!-- will later be populated -->
         </div>
         <div class="controls">
+            <div class="song-info">
+                <label for="songName">Song Name:</label>
+                <input type="text" id="songName" value="My Song">
+                <label for="songAuthor">Author:</label>
+                <input type="text" id="songAuthor" value="Player">
+                <label for="originalAuthor">Original Author:</label>
+                <input type="text" id="originalAuthor" value="">
+                <label for="songDescription">Description:</label>
+                <textarea id="songDescription"></textarea>
+            </div>
             <div class="button-section">
                 <div class="button-row">
                     <button id="playBtn">▶️ Play</button>
@@ -73,15 +83,16 @@
             </div>
         </div>
 
-        <div class="song-info">
-            <label for="songName">Song Name:</label>
-            <input type="text" id="songName" value="My Song">
-            <label for="songAuthor">Author:</label>
-            <input type="text" id="songAuthor" value="Player">
-            <label for="originalAuthor">Original Author:</label>
-            <input type="text" id="originalAuthor" value="">
-            <label for="songDescription">Description:</label>
-            <textarea id="songDescription"></textarea>
+        <!-- Mobile-only song-info section -->
+        <div class="song-info-mobile">
+            <label for="songNameMobile">Song Name:</label>
+            <input type="text" id="songNameMobile" value="My Song">
+            <label for="songAuthorMobile">Author:</label>
+            <input type="text" id="songAuthorMobile" value="Player">
+            <label for="originalAuthorMobile">Original Author:</label>
+            <input type="text" id="originalAuthorMobile" value="">
+            <label for="songDescriptionMobile">Description:</label>
+            <textarea id="songDescriptionMobile"></textarea>
         </div>
     </div>
     <script src="js/script.js"></script>

@@ -209,21 +209,56 @@ h1 {
     box-shadow: inset 0 2px 0 #4a4a4a;
 }
 
-/* Desktop layout: 2-column with buttons on left, settings on right */
+/* Desktop layout: 3-column with song-info at top, buttons and settings below */
 @media (min-width: 769px) {
     .controls {
         display: grid;
-        grid-template-columns: auto auto;
+        grid-template-columns: auto auto auto;
+        grid-template-rows: auto;
         gap: 20px;
-        align-items: stretch;
+        align-items: start;
+    }
+    
+    .controls .song-info {
+        grid-column: 1;
+        grid-row: 1;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin: 0;
+        padding: 15px;
+        background: #4a4a4a;
+        border-radius: 6px;
+        border: 2px solid #666;
+        box-shadow: inset 0 2px 0 #5a5a5a;
+        width: 300px;
+    }
+    
+    .controls .song-info label {
+        text-align: left;
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+    
+    .controls .song-info input,
+    .controls .song-info textarea {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+    
+    .controls .song-info textarea {
+        height: 40px;
+        resize: vertical;
     }
     
     .controls .button-section {
+        grid-column: 2;
+        grid-row: 1;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         grid-template-rows: repeat(3, 1fr);
         gap: 8px;
-        width: fit-content;
+        width: 300px;
         align-self: stretch;
         height: 100%;
         min-height: 200px;
@@ -245,11 +280,19 @@ h1 {
     }
     
     .controls .settings-section {
+        grid-column: 3;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        min-width: 200px;
-        align-self: stretch;
+        width: 250px;
+        align-self: center;
+        justify-content: center;
+    }
+    
+    /* Hide mobile song-info on desktop */
+    .song-info-mobile {
+        display: none;
     }
 }
 
@@ -462,6 +505,10 @@ button:disabled {
     border: 1px solid #666;
 }
 
+.instrument-control select {
+    width: 120px;
+}
+
 .tempo-control label, .instrument-control label, .volume-control label {
     font-family: 'Minecraft Regular', monospace;
     color: #ccc;
@@ -576,6 +623,41 @@ input[type="text"]:focus, textarea:focus {
 }
 
 .song-info textarea {
+    height: 60px;
+    resize: vertical;
+}
+
+/* Mobile song-info section */
+.song-info-mobile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 15px;
+    background: #3a3a3a;
+    border-radius: 6px;
+    font-size: 14px;
+    border: 2px solid #555;
+    box-shadow: inset 0 2px 0 #4a4a4a;
+}
+
+.song-info-mobile label {
+    text-align: left;
+    font-family: 'Minecraft Regular', monospace;
+    color: #ccc;
+    font-weight: bold;
+}
+
+.song-info-mobile input, .song-info-mobile textarea {
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: 'Minecraft Regular', monospace;
+}
+
+.song-info-mobile textarea {
     height: 60px;
     resize: vertical;
 }
@@ -722,14 +804,39 @@ input[type="text"]:focus, textarea:focus {
         height: 28px;
     }
     
-    .song-info {
+    /* Hide desktop song-info on mobile */
+    .controls .song-info {
+        display: none;
+    }
+    
+    .song-info-mobile {
+        display: grid;
         grid-template-columns: 1fr;
         gap: 10px;
         padding: 15px;
+        margin-top: 20px;
+        background: #3a3a3a;
+        border-radius: 6px;
+        font-size: 14px;
+        border: 2px solid #555;
+        box-shadow: inset 0 2px 0 #4a4a4a;
     }
     
-    .song-info label {
+    .song-info-mobile label {
         text-align: left;
+        font-family: 'Minecraft Regular', monospace;
+        color: #ccc;
+        font-weight: bold;
+    }
+    
+    .song-info-mobile input,
+    .song-info-mobile textarea {
+        background: #4a4a4a;
+        color: white;
+        border: 2px solid #666;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-family: 'Minecraft Regular', monospace;
     }
     
     button, select, input, textarea {

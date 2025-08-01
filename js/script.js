@@ -817,6 +817,59 @@ class NBSEditor {
             }
         });
         
+        // Song info field synchronization
+        const songInfoFields = [
+            { desktop: 'songName', mobile: 'songNameMobile' },
+            { desktop: 'songAuthor', mobile: 'songAuthorMobile' },
+            { desktop: 'originalAuthor', mobile: 'originalAuthorMobile' },
+            { desktop: 'songDescription', mobile: 'songDescriptionMobile' }
+        ];
+        
+        songInfoFields.forEach(field => {
+            const desktopEl = document.getElementById(field.desktop);
+            const mobileEl = document.getElementById(field.mobile);
+            
+            if (desktopEl) {
+                desktopEl.addEventListener('input', (e) => {
+                    // Sync to mobile field
+                    if (mobileEl) {
+                        mobileEl.value = e.target.value;
+                    }
+                    // Update song object
+                    const fieldName = field.desktop.replace('song', '').toLowerCase();
+                    if (fieldName === 'name') {
+                        this.song.name = e.target.value;
+                    } else if (fieldName === 'author') {
+                        this.song.author = e.target.value;
+                    } else if (fieldName === 'originalauthor') {
+                        this.song.originalAuthor = e.target.value;
+                    } else if (fieldName === 'description') {
+                        this.song.description = e.target.value;
+                    }
+                });
+            }
+            
+            if (mobileEl) {
+                mobileEl.addEventListener('input', (e) => {
+                    // Sync to desktop field
+                    if (desktopEl) {
+                        desktopEl.value = e.target.value;
+                    }
+                    // Update song object
+                    const fieldName = field.desktop.replace('song', '').toLowerCase();
+                    if (fieldName === 'name') {
+                        this.song.name = e.target.value;
+                    } else if (fieldName === 'author') {
+                        this.song.author = e.target.value;
+                    } else if (fieldName === 'originalauthor') {
+                        this.song.originalAuthor = e.target.value;
+                    } else if (fieldName === 'description') {
+                        this.song.description = e.target.value;
+                    }
+                });
+            }
+        });
+        
         // Resume audio context on first interaction
         document.addEventListener('click', () => {
             if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -886,14 +939,56 @@ class NBSEditor {
     }
 
     // Add this method to the NBSEditor class
+    updateSongInfoFields() {
+        // Update both desktop and mobile song info fields
+        const fields = [
+            { desktop: 'songName', mobile: 'songNameMobile', songProp: 'name' },
+            { desktop: 'songAuthor', mobile: 'songAuthorMobile', songProp: 'author' },
+            { desktop: 'originalAuthor', mobile: 'originalAuthorMobile', songProp: 'originalAuthor' },
+            { desktop: 'songDescription', mobile: 'songDescriptionMobile', songProp: 'description' }
+        ];
+        
+        fields.forEach(field => {
+            const desktopEl = document.getElementById(field.desktop);
+            const mobileEl = document.getElementById(field.mobile);
+            const value = this.song[field.songProp] || '';
+            
+            if (desktopEl) {
+                desktopEl.value = value;
+            }
+            if (mobileEl) {
+                mobileEl.value = value;
+            }
+        });
+    }
+    
+    getSongInfoFromFields() {
+        // Get song info from form fields (prefer desktop, fallback to mobile)
+        const getFieldValue = (fieldName) => {
+            const desktopEl = document.getElementById(fieldName);
+            const mobileEl = document.getElementById(fieldName + 'Mobile');
+            return (desktopEl && desktopEl.value) || (mobileEl && mobileEl.value) || '';
+        };
+        
+        return {
+            name: getFieldValue('songName'),
+            author: getFieldValue('songAuthor'),
+            originalAuthor: getFieldValue('originalAuthor'),
+            description: getFieldValue('songDescription')
+        };
+    }
+    
     exportSong() {
+        // Get current song info from form fields
+        const songInfo = this.getSongInfoFromFields();
+        
         // Create a new NBS song
         const nbsSong = new Song();
         // Set song metadata
-        nbsSong.name = this.song.name;
-        nbsSong.author = this.song.author;
-        nbsSong.originalAuthor = this.song.originalAuthor;
-        nbsSong.description = this.song.description;
+        nbsSong.name = songInfo.name;
+        nbsSong.author = songInfo.author;
+        nbsSong.originalAuthor = songInfo.originalAuthor;
+        nbsSong.description = songInfo.description;
         nbsSong.tempo = (this.song.tempo * 4) / 60; // Convert BPM to ticks per second
         nbsSong.timeSignature = this.song.timeSignature;
         nbsSong.size = this.totalTicks;
@@ -1029,10 +1124,7 @@ class NBSEditor {
         this.song.timeSignature = nbsSong.timeSignature || 4;
         
         // Update UI elements
-        document.getElementById('songName').value = this.song.name;
-        document.getElementById('songAuthor').value = this.song.author;
-        document.getElementById('originalAuthor').value = this.song.originalAuthor;
-        document.getElementById('songDescription').value = this.song.description;
+        this.updateSongInfoFields();
         document.getElementById('tempoSlider').value = this.song.tempo;
         document.getElementById('tempoInput').value = this.song.tempo;
         document.getElementById('tempoValue').textContent = 'BPM';
