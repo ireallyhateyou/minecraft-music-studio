@@ -219,14 +219,19 @@ h1 {
         align-items: start;
     }
     
+    /* Hide mobile song-info on desktop */
+    .song-info-mobile {
+        display: none;
+    }
+    
     .controls .song-info {
         grid-column: 1;
         grid-row: 1;
         display: grid;
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 6px;
         margin: 0;
-        padding: 15px;
+        padding: 10px;
         background: #4a4a4a;
         border-radius: 6px;
         border: 2px solid #666;
@@ -237,46 +242,49 @@ h1 {
     .controls .song-info label {
         text-align: left;
         font-size: 12px;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     
     .controls .song-info input,
     .controls .song-info textarea {
         font-size: 12px;
-        padding: 6px 8px;
+        padding: 4px 6px;
     }
     
     .controls .song-info textarea {
-        height: 40px;
+        height: 30px;
         resize: vertical;
     }
     
     .controls .button-section {
         grid-column: 2;
         grid-row: 1;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         width: 300px;
-        align-self: stretch;
-        height: 100%;
-        min-height: 200px;
+        align-self: start;
+        justify-content: start;
+        height: fit-content;
     }
     
     .controls .button-section .button-row {
-        display: contents;
+        display: flex;
+        gap: 4px;
     }
     
     .controls .button-section .button-row button {
-        width: 100%;
-        height: 100%;
+        flex: 1;
+        height: 40px;
         min-width: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
-        padding: 8px 12px;
+        font-size: 12px;
+        padding: 4px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .controls .settings-section {
@@ -286,13 +294,19 @@ h1 {
         flex-direction: column;
         gap: 8px;
         width: 250px;
-        align-self: center;
-        justify-content: center;
+        align-self: start;
+        justify-content: start;
+        height: fit-content;
     }
     
     /* Hide mobile song-info on desktop */
     .song-info-mobile {
         display: none;
+    }
+    
+    /* Hide desktop song-info on mobile */
+    .controls .song-info {
+        display: grid;
     }
 }
 
@@ -505,6 +519,33 @@ button:disabled {
     border: 1px solid #666;
 }
 
+.full-width-btn {
+    width: 100%;
+    background: #4a4a4a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #666;
+    font-size: 14px;
+    font-family: 'Minecraft Regular', monospace;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.full-width-btn:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+.full-width-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 #333;
+}
+
 .instrument-control select {
     width: 120px;
 }
@@ -627,9 +668,9 @@ input[type="text"]:focus, textarea:focus {
     resize: vertical;
 }
 
-/* Mobile song-info section */
+/* Mobile song-info section - hidden by default, shown only on mobile */
 .song-info-mobile {
-    display: grid;
+    display: none;
     grid-template-columns: 1fr;
     gap: 10px;
     margin-top: 20px;
@@ -704,7 +745,17 @@ input[type="text"]:focus, textarea:focus {
         gap: 16px;
         align-items: stretch;
     }
+    
+    /* Reorder controls on mobile: settings first, then buttons */
+    .controls .settings-section {
+        order: -1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
     .controls .button-section {
+        order: 0;
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -718,11 +769,7 @@ input[type="text"]:focus, textarea:focus {
     .controls .button-section .button-row button {
         flex: 1;
     }
-    .controls .settings-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
+    
     .controls > * {
         width: 100%;
         max-width: 100%;
@@ -811,15 +858,6 @@ input[type="text"]:focus, textarea:focus {
     
     .song-info-mobile {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-        padding: 15px;
-        margin-top: 20px;
-        background: #3a3a3a;
-        border-radius: 6px;
-        font-size: 14px;
-        border: 2px solid #555;
-        box-shadow: inset 0 2px 0 #4a4a4a;
     }
     
     .song-info-mobile label {
