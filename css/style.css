@@ -44,6 +44,238 @@ h1 {
     font-size: 2.5em;
 }
 
+/* Header controls */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    margin: 0;
+    flex: 1;
+}
+
+.header-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.help-btn, .theme-btn {
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.help-btn:hover, .theme-btn:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+/* Header buttons */
+.header-btn {
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-btn:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    background: #2d2d2d;
+    margin: 5% auto;
+    padding: 0;
+    border: 3px solid #555;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 8px 0 #1a1a1a, 0 16px 0 #0f0f0f;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    background: #4a4a4a;
+    padding: 15px 20px;
+    border-bottom: 2px solid #666;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #ffd700;
+    font-family: 'Minecraft Bold', monospace;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.close-btn:hover {
+    background: #ff4444;
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.shortcut-group {
+    margin-bottom: 20px;
+}
+
+.shortcut-group h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+    font-family: 'Minecraft Bold', monospace;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.shortcut-item:last-child {
+    border-bottom: none;
+}
+
+kbd {
+    background: #4a4a4a;
+    border: 1px solid #666;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: 'Minecraft Regular', monospace;
+    font-size: 12px;
+    color: #ffd700;
+    box-shadow: 0 1px 0 #333;
+}
+
+/* Status bar */
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    background: #3a3a3a;
+    padding: 8px 15px;
+    border: 2px solid #555;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-family: 'Minecraft Regular', monospace;
+    font-size: 14px;
+    box-shadow: inset 0 2px 0 #4a4a4a;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.status-label {
+    color: #ccc;
+    font-weight: bold;
+}
+
+/* Selection box */
+.selection-box {
+    position: absolute;
+    border: 2px dashed #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    pointer-events: none;
+    z-index: 50;
+    animation: selectionPulse 2s ease-in-out infinite;
+}
+
+@keyframes selectionPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+}
+
+/* Grid control */
+.grid-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #4a4a4a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #666;
+}
+
+.grid-control label {
+    font-family: 'Minecraft Regular', monospace;
+    color: #ccc;
+    font-size: 14px;
+}
+
 /* Optional: Add font classes for specific uses */
 .minecraft-italic {
     font-family: 'Minecraft Italic', 'Minecraft Regular', monospace;
@@ -61,11 +293,6 @@ h1 {
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 8px 0 #1a1a1a, 0 16px 0 #0f0f0f;
-}
-
-.header {
-    text-align: center;
-    margin-bottom: 30px;
 }
 
 .audio-notice {
@@ -341,6 +568,38 @@ button:disabled {
     color: #666;
     cursor: not-allowed;
     transform: none;
+    box-shadow: 0 2px 0 #2a2a2a;
+}
+
+/* Make playback buttons more prominent */
+.controls .button-section .button-row:first-child button,
+.controls .button-section .button-row:nth-child(2) button {
+    background: #4a4a4a; /* Neutral background */
+    border-color: #666;
+    box-shadow: 0 3px 0 #333;
+    font-size: 16px;
+    padding: 12px 16px;
+    font-weight: bold;
+}
+
+.controls .button-section .button-row:first-child button:hover,
+.controls .button-section .button-row:nth-child(2) button:hover {
+    background: #5a5a5a;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 #333;
+}
+
+.controls .button-section .button-row:first-child button:active,
+.controls .button-section .button-row:nth-child(2) button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 0 #333;
+}
+
+.controls .button-section .button-row:first-child button:disabled,
+.controls .button-section .button-row:nth-child(2) button:disabled {
+    background: #3a3a3a;
+    color: #666;
+    border-color: #4a4a4a;
     box-shadow: 0 2px 0 #2a2a2a;
 }
 
@@ -668,6 +927,33 @@ input[type="text"]:focus, textarea:focus {
     resize: vertical;
 }
 
+.song-info-btn {
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+    margin-top: 10px;
+    width: 100%;
+    font-family: 'Minecraft Regular', monospace;
+    grid-column: 1 / -1;
+}
+
+.song-info-btn:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+.song-info-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 0 #333;
+}
+
 /* Mobile song-info section - hidden by default, shown only on mobile */
 .song-info-mobile {
     display: none;
@@ -738,6 +1024,16 @@ input[type="text"]:focus, textarea:focus {
     h1 {
         font-size: 1.8em;
         margin-bottom: 20px;
+    }
+    
+    .header-controls {
+        gap: 8px;
+    }
+    
+    .header-btn, .help-btn, .theme-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
     }
     
     .controls {
@@ -856,6 +1152,10 @@ input[type="text"]:focus, textarea:focus {
         display: none;
     }
     
+    .song-info-btn {
+        display: none;
+    }
+    
     .song-info-mobile {
         display: grid;
     }
@@ -891,6 +1191,49 @@ input[type="text"]:focus, textarea:focus {
     .tempo-input {
         width: 80px;
         padding: 8px;
+    }
+    
+    /* Modal mobile responsiveness */
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .song-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .song-card {
+        padding: 12px;
+    }
+    
+    .url-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .url-container input {
+        font-size: 11px;
+        padding: 8px;
+    }
+    
+    .copy-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .share-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .share-btn {
+        min-width: auto;
+        padding: 12px 15px;
+        font-size: 14px;
     }
 }
 
@@ -1171,4 +1514,178 @@ label {
         height: 32px;
         font-size: 16px;
     }
+}
+
+/* Library styles */
+.library-section {
+    margin-bottom: 30px;
+}
+
+.library-section h3 {
+    color: #ffd700;
+    margin-bottom: 15px;
+    font-family: 'Minecraft Bold', monospace;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+}
+
+.song-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.song-card {
+    background: #3a3a3a;
+    border: 2px solid #555;
+    border-radius: 6px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+}
+
+.song-card:hover {
+    background: #4a4a4a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 0 #333;
+}
+
+.song-card.selected {
+    border-color: #ffd700;
+    background: #4a4a4a;
+}
+
+.song-title {
+    font-family: 'Minecraft Bold', monospace;
+    color: #ffd700;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.song-author {
+    color: #ccc;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.song-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #999;
+}
+
+.song-info span {
+    background: #2a2a2a;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Share styles */
+.share-section {
+    margin-bottom: 25px;
+}
+
+.share-section h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+    font-family: 'Minecraft Bold', monospace;
+}
+
+.url-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.url-container input {
+    flex: 1;
+    background: #3a3a3a;
+    color: #fff;
+    border: 2px solid #555;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: 'Minecraft Regular', monospace;
+    font-size: 12px;
+}
+
+.copy-btn {
+    background: #4a90e2;
+    color: white;
+    border: 2px solid #357abd;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Minecraft Regular', monospace;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #357abd;
+    white-space: nowrap;
+}
+
+.copy-btn:hover {
+    background: #5a9ee2;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #357abd;
+}
+
+.share-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.share-btn {
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Minecraft Regular', monospace;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #333;
+    flex: 1;
+    min-width: 120px;
+}
+
+.share-btn:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+.share-btn.twitter {
+    background: #1da1f2;
+    border-color: #1a91da;
+    box-shadow: 0 2px 0 #1a91da;
+}
+
+.share-btn.twitter:hover {
+    background: #1ba1f2;
+    box-shadow: 0 3px 0 #1a91da;
+}
+
+.share-btn.discord {
+    background: #7289da;
+    border-color: #5b6eae;
+    box-shadow: 0 2px 0 #5b6eae;
+}
+
+.share-btn.discord:hover {
+    background: #7a91da;
+    box-shadow: 0 3px 0 #5b6eae;
+}
+
+.share-btn.reddit {
+    background: #ff4500;
+    border-color: #e63e00;
+    box-shadow: 0 2px 0 #e63e00;
+}
+
+.share-btn.reddit:hover {
+    background: #ff5500;
+    box-shadow: 0 3px 0 #e63e00;
 }

@@ -30,6 +30,20 @@ class NBSEditor {
         this.currentTrackIndex = 0; // Track currently being edited/viewed
         this.fullViewMode = false; // Track full view state
         this.audioInitializing = false; // Flag to prevent multiple simultaneous audio initializations
+        
+        // New features
+        this.clipboard = null;
+        this.selection = {
+            start: null,
+            end: null,
+            active: false
+        };
+        this.isSelecting = false;
+        
+        // URL sharing and library features
+        this.defaultSongs = []; // Will be loaded asynchronously
+        this.sharedSongs = [];
+        
         // Default note names (will be updated per instrument)
         this.noteNames = [
             'F♯3', 'G3', 'G♯3', 'A3', 'A♯3', 'B3', 'C4', 'C♯4', 'D4', 'D♯4', 'E4', 'F4', 'F♯4',
@@ -78,6 +92,46 @@ class NBSEditor {
         this.renderTrackTabs(); // Render tabs after setup
         this.updateVolumeSlider(); // Initialize volume slider
         this.saveState(); // Save initial state
+        
+        // Setup new features
+        this.setupKeyboardShortcuts();
+        this.setupModalHandlers();
+        this.setupLibraryHandlers();
+        this.setupShareHandlers();
+        this.setupGridSizeControl();
+        this.updateStatusBar();
+        
+        // Load songs from assets/songs/ directory
+        try {
+            this.defaultSongs = await this.getDefaultSongs();
+        } catch (error) {
+            console.error('Error loading default songs:', error);
+            this.defaultSongs = this.getFallbackSongs();
+        }
+        
+        // Try to load song from URL
+        if (!this.loadSongFromURL()) {
+            // If no song in URL, load first available song
+            if (this.defaultSongs.length > 0) {
+                this.loadSongData(this.defaultSongs[0].data);
+            } else {
+                // Fallback to a basic empty song
+                this.loadSongData({
+                    name: "New Song",
+                    author: "Player",
+                    originalAuthor: "",
+                    description: "",
+                    tempo: 120,
+                    timeSignature: 4,
+                    length: 64,
+                    tracks: [{
+                        instrument: 0,
+                        notes: {},
+                        volume: 100
+                    }]
+                });
+            }
+        }
         
         // Show audio notice initially
         const audioNotice = document.getElementById('audioNotice');
@@ -488,6 +542,8 @@ class NBSEditor {
         if (this.currentTick % 4 === 0) { // Only auto-scroll every 4 ticks
             this.syncScrollbarWithPlayhead();
         }
+        
+        this.updateStatusBar();
     }
     
     syncScrollbarWithPlayhead() {
@@ -612,6 +668,7 @@ class NBSEditor {
                 this.renderTrackTabs();
                 this.updateInstrumentSelector();
                 this.updateVolumeSlider();
+                this.updateStatusBar();
             });
             // Remove button (if more than 1 track)
             if (this.song.tracks.length > 1) {
@@ -648,6 +705,7 @@ class NBSEditor {
             this.renderTrackTabs();
             this.updateInstrumentSelector();
             this.updateVolumeSlider();
+            this.updateStatusBar();
             this.saveState(); // Save state after adding track
         });
         tabBar.appendChild(addBtn);
@@ -693,23 +751,28 @@ class NBSEditor {
         gridContainer.addEventListener('mousedown', async (e) => {
             await initAudioContext(); // Initialize audio context on first interaction
             if (e.target.classList.contains('note-cell')) {
-                this.isDragging = true;
-                this.toggleNote(e.target);
-                
-                const initialState = e.target.classList.contains('active');
-                
-                const dragHandler = (e) => {
-                    const targetCell = document.elementFromPoint(e.clientX, e.clientY);
-                    if (targetCell && targetCell.classList.contains('note-cell')) {
-                        this.toggleNote(targetCell, initialState);
-                    }
-                };
-                
-                document.addEventListener('mousemove', dragHandler);
-                document.addEventListener('mouseup', () => {
-                    this.isDragging = false;
-                    document.removeEventListener('mousemove', dragHandler);
-                }, { once: true });
+                // Check if Ctrl/Cmd is held for selection mode
+                if (e.ctrlKey || e.metaKey) {
+                    this.startSelection(e);
+                } else {
+                    this.isDragging = true;
+                    this.toggleNote(e.target);
+                    
+                    const initialState = e.target.classList.contains('active');
+                    
+                    const dragHandler = (e) => {
+                        const targetCell = document.elementFromPoint(e.clientX, e.clientY);
+                        if (targetCell && targetCell.classList.contains('note-cell')) {
+                            this.toggleNote(targetCell, initialState);
+                        }
+                    };
+                    
+                    document.addEventListener('mousemove', dragHandler);
+                    document.addEventListener('mouseup', () => {
+                        this.isDragging = false;
+                        document.removeEventListener('mousemove', dragHandler);
+                    }, { once: true });
+                }
             }
         });
 
@@ -774,6 +837,8 @@ class NBSEditor {
         document.getElementById('fullViewBtn').addEventListener('click', () => this.toggleFullView());
         document.getElementById('undoBtn').addEventListener('click', () => this.undo());
         document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+        document.getElementById('copyBtn').addEventListener('click', () => this.copySelection());
+        document.getElementById('pasteBtn').addEventListener('click', () => this.pasteSelection());
         
         // Settings
         document.getElementById('instrumentSelector').addEventListener('change', (e) => {
@@ -1100,24 +1165,23 @@ class NBSEditor {
     }
 
     loadSongFromNBS(nbsSong) {
-        
-        // Update song metadata
-        this.song.name = nbsSong.name || 'Imported Song';
-        this.song.author = nbsSong.author || 'Unknown';
-        this.song.originalAuthor = nbsSong.originalAuthor || '';
-        this.song.description = nbsSong.description || '';
-        
+        // Validate input
+        if (!nbsSong || !nbsSong.layers) {
+            console.error('Invalid NBS song data: missing layers property');
+            return false;
+        }
+
         // Convert NBS tempo (ticks per second) to BPM
         // NBS uses 4 ticks per beat, so: BPM = (ticks per second * 60) / 4
-        let calculatedBPM = (nbsSong.tempo * 60) / 4;
+        let calculatedBPM = Math.round((nbsSong.tempo * 60) / 4);
         
-        // Limit BPM to reasonable range (20-300 BPM)
+        // Limit BPM to reasonable range (matching UI slider max)
         if (calculatedBPM < 20) {
             console.warn('BPM too slow, limiting to 20 BPM');
             calculatedBPM = 20;
-        } else if (calculatedBPM >= 300) {
-            console.warn('BPM too fast, limiting to 300 BPM');
-            calculatedBPM = 300;
+        } else if (calculatedBPM >= 600) {
+            console.warn('BPM too fast, limiting to 600 BPM');
+            calculatedBPM = 600;
         }
         
         this.song.tempo = Math.round(calculatedBPM);
@@ -1219,8 +1283,6 @@ class NBSEditor {
         // Save state
         this.saveState();
         
-
-        
         // Set full view as default after importing
         this.fullViewMode = true;
         const fullViewBtn = document.getElementById('fullViewBtn');
@@ -1231,6 +1293,61 @@ class NBSEditor {
         // Regenerate grid to show all tracks in full view
         this.generateNoteGrid();
         this.restoreNoteVisuals();
+        
+        return true;
+    }
+
+    loadSongData(songData) {
+        // Validate input
+        if (!songData || !songData.tracks) {
+            console.error('Invalid song data: missing tracks property');
+            return false;
+        }
+
+        // Copy song properties
+        this.song.name = songData.name || 'Untitled Song';
+        this.song.author = songData.author || 'Unknown Artist';
+        this.song.tempo = songData.tempo || 120;
+        this.song.timeSignature = songData.timeSignature || 4;
+        
+        // Update UI elements
+        this.updateSongInfoFields();
+        document.getElementById('tempoSlider').value = this.song.tempo;
+        document.getElementById('tempoInput').value = this.song.tempo;
+        document.getElementById('tempoValue').textContent = 'BPM';
+        
+        // Copy tracks
+        this.song.tracks = JSON.parse(JSON.stringify(songData.tracks));
+        
+        // Calculate total ticks based on song data
+        let maxTickWithNotes = 0;
+        
+        for (const track of this.song.tracks) {
+            for (const key in track.notes) {
+                const [, tick] = key.split(',').map(Number);
+                maxTickWithNotes = Math.max(maxTickWithNotes, tick);
+            }
+        }
+        
+        // Use the maximum of 64 or highest tick with notes
+        this.totalTicks = Math.max(64, maxTickWithNotes + 1);
+        
+        // Reset current track index
+        this.currentTrackIndex = 0;
+        
+        // Update UI
+        this.generateNoteGrid();
+        this.renderTrackTabs();
+        this.updateInstrumentSelector();
+        this.updateVolumeSlider();
+        
+        // Restore note visuals after grid generation
+        this.restoreNoteVisuals();
+        
+        // Save state
+        this.saveState();
+        
+        return true;
     }
 
     // Add a helper to play a note with a specific instrument
@@ -1639,14 +1756,792 @@ class NBSEditor {
     
     // Schedule note highlighting at a specific time
     scheduleNoteHighlight(noteIndex, tick, time) {
-        // Highlight immediately for visual consistency
-        // The audio timing is handled separately, so we can update visuals immediately
-        if (this.isPlaying) {
+        setTimeout(() => {
             const cell = document.querySelector(`[data-note="${noteIndex}"][data-tick="${tick}"]`);
-            if (cell) {
+            if (cell && cell.classList.contains('active')) {
                 cell.classList.add('playing');
+                setTimeout(() => {
+                    cell.classList.remove('playing');
+                }, 100);
+            }
+        }, time * 1000);
+    }
+
+    // New methods for enhanced features
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger shortcuts when typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    if (this.isPlaying) {
+                        this.pause();
+                    } else {
+                        this.play();
+                    }
+                    break;
+                case 'r':
+                case 'R':
+                    e.preventDefault();
+                    this.stop();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.currentTick = Math.max(0, this.currentTick - 1);
+                    this.updatePlayhead();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.currentTick = Math.min(this.totalTicks - 1, this.currentTick + 1);
+                    this.updatePlayhead();
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    this.currentTick = 0;
+                    this.updatePlayhead();
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    this.currentTick = this.totalTicks - 1;
+                    this.updatePlayhead();
+                    break;
+                case 'f':
+                case 'F':
+                    e.preventDefault();
+                    this.toggleFullView();
+                    break;
+                case 'Delete':
+                    e.preventDefault();
+                    this.clearSelection();
+                    break;
+                case 'a':
+                case 'A':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.selectAll();
+                    }
+                    break;
+                case 'z':
+                case 'Z':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.undo();
+                    }
+                    break;
+                case 'y':
+                case 'Y':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.redo();
+                    }
+                    break;
+                case 'c':
+                case 'C':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.copySelection();
+                    }
+                    break;
+                case 'v':
+                case 'V':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        this.pasteSelection();
+                    }
+                    break;
+            }
+        });
+    }
+
+    setupModalHandlers() {
+        const helpModal = document.getElementById('helpModal');
+        const helpBtn = document.getElementById('helpBtn');
+        const closeHelp = document.getElementById('closeHelp');
+
+        helpBtn.addEventListener('click', () => {
+            helpModal.style.display = 'block';
+        });
+
+        closeHelp.addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && helpModal.style.display === 'block') {
+                helpModal.style.display = 'none';
+            }
+        });
+    }
+
+    updateStatusBar() {
+        const currentPosition = document.getElementById('currentPosition');
+        const totalLength = document.getElementById('totalLength');
+        const currentTrack = document.getElementById('currentTrack');
+        const noteCount = document.getElementById('noteCount');
+
+        if (currentPosition) currentPosition.textContent = this.currentTick;
+        if (totalLength) totalLength.textContent = this.totalTicks;
+        if (currentTrack) currentTrack.textContent = this.currentTrackIndex + 1;
+
+        // Count notes in current track
+        const track = this.song.tracks[this.currentTrackIndex];
+        const noteCountValue = Object.keys(track.notes).length;
+        if (noteCount) noteCount.textContent = noteCountValue;
+    }
+
+    setupGridSizeControl() {
+        const gridSizeSlider = document.getElementById('gridSizeSlider');
+        const gridSizeValue = document.getElementById('gridSizeValue');
+
+        if (gridSizeSlider && gridSizeValue) {
+            gridSizeSlider.addEventListener('input', (e) => {
+                const newSize = parseInt(e.target.value);
+                gridSizeValue.textContent = newSize;
+                this.resizeGrid(newSize);
+            });
+        }
+    }
+
+    resizeGrid(newSize) {
+        this.totalTicks = newSize;
+        this.currentTick = Math.min(this.currentTick, newSize - 1);
+        
+        // Update CSS custom properties
+        document.documentElement.style.setProperty('--song-length', newSize);
+        
+        // Regenerate the grid
+        this.generateNoteGrid();
+        this.updatePlayhead();
+        this.updateStatusBar();
+    }
+
+    selectAll() {
+        this.selection = {
+            start: { tick: 0, note: 0 },
+            end: { tick: this.totalTicks - 1, note: this.noteNames.length - 1 },
+            active: true
+        };
+        this.updateSelectionVisual();
+    }
+
+    clearSelection() {
+        if (this.selection.active) {
+            const track = this.song.tracks[this.currentTrackIndex];
+            const startTick = Math.min(this.selection.start.tick, this.selection.end.tick);
+            const endTick = Math.max(this.selection.start.tick, this.selection.end.tick);
+            const startNote = Math.min(this.selection.start.note, this.selection.end.note);
+            const endNote = Math.max(this.selection.start.note, this.selection.end.note);
+
+            for (let tick = startTick; tick <= endTick; tick++) {
+                for (let note = startNote; note <= endNote; note++) {
+                    const key = `${note},${tick}`;
+                    if (track.notes[key]) {
+                        delete track.notes[key];
+                    }
+                }
+            }
+            this.restoreNoteVisuals();
+            this.saveState();
+        }
+    }
+
+    copySelection() {
+        if (!this.selection.active) {
+            console.log('No active selection to copy');
+            return;
+        }
+
+        const track = this.song.tracks[this.currentTrackIndex];
+        const startTick = Math.min(this.selection.start.tick, this.selection.end.tick);
+        const endTick = Math.max(this.selection.start.tick, this.selection.end.tick);
+        const startNote = Math.min(this.selection.start.note, this.selection.end.note);
+        const endNote = Math.max(this.selection.start.note, this.selection.end.note);
+
+        this.clipboard = {
+            width: endTick - startTick + 1,
+            height: endNote - startNote + 1,
+            notes: {},
+            instrument: track.instrument
+        };
+
+        let noteCount = 0;
+        for (let tick = startTick; tick <= endTick; tick++) {
+            for (let note = startNote; note <= endNote; note++) {
+                const key = `${note},${tick}`;
+                if (track.notes[key]) {
+                    const relativeTick = tick - startTick;
+                    const relativeNote = note - startNote;
+                    this.clipboard.notes[`${relativeNote},${relativeTick}`] = track.notes[key];
+                    noteCount++;
+                }
             }
         }
+
+        // Enable paste button
+        const pasteBtn = document.getElementById('pasteBtn');
+        if (pasteBtn) pasteBtn.disabled = false;
+        
+        console.log(`Copied ${noteCount} notes to clipboard`);
+    }
+
+    pasteSelection() {
+        if (!this.clipboard) {
+            console.log('No clipboard data to paste');
+            return;
+        }
+
+        const track = this.song.tracks[this.currentTrackIndex];
+        const pasteStartTick = this.currentTick;
+        const pasteStartNote = 0; // Start from top
+
+        // Clear existing notes in paste area
+        for (let tick = pasteStartTick; tick < pasteStartTick + this.clipboard.width; tick++) {
+            for (let note = pasteStartNote; note < pasteStartNote + this.clipboard.height; note++) {
+                const key = `${note},${tick}`;
+                if (track.notes[key]) {
+                    delete track.notes[key];
+                }
+            }
+        }
+
+        // Paste clipboard notes
+        let pastedCount = 0;
+        for (const [key, noteData] of Object.entries(this.clipboard.notes)) {
+            const [relativeNote, relativeTick] = key.split(',').map(Number);
+            const absoluteTick = pasteStartTick + relativeTick;
+            const absoluteNote = pasteStartNote + relativeNote;
+            
+            if (absoluteTick < this.totalTicks && absoluteNote < this.noteNames.length) {
+                track.notes[`${absoluteNote},${absoluteTick}`] = {
+                    ...noteData,
+                    instrument: track.instrument
+                };
+                pastedCount++;
+            }
+        }
+
+        this.restoreNoteVisuals();
+        this.saveState();
+        
+        console.log(`Pasted ${pastedCount} notes at tick ${pasteStartTick}`);
+    }
+
+    updateSelectionVisual() {
+        const selectionBox = document.getElementById('selectionBox');
+        const selectionStatus = document.getElementById('selectionStatus');
+        const selectionInfo = document.getElementById('selectionInfo');
+        
+        if (!this.selection.active) {
+            if (selectionBox) selectionBox.style.display = 'none';
+            if (selectionStatus) selectionStatus.style.display = 'none';
+            return;
+        }
+
+        const startTick = Math.min(this.selection.start.tick, this.selection.end.tick);
+        const endTick = Math.max(this.selection.start.tick, this.selection.end.tick);
+        const startNote = Math.min(this.selection.start.note, this.selection.end.note);
+        const endNote = Math.max(this.selection.start.note, this.selection.end.note);
+
+        const left = startTick * 25 + 64; // 25px per tick + piano keys width
+        const top = startNote * 25 + 32; // 25px per note + tick labels height
+        const width = (endTick - startTick + 1) * 25;
+        const height = (endNote - startNote + 1) * 25;
+
+        if (selectionBox) {
+            selectionBox.style.left = `${left}px`;
+            selectionBox.style.top = `${top}px`;
+            selectionBox.style.width = `${width}px`;
+            selectionBox.style.height = `${height}px`;
+            selectionBox.style.display = 'block';
+        }
+
+        // Update selection status
+        if (selectionStatus && selectionInfo) {
+            const width = endTick - startTick + 1;
+            const height = endNote - startNote + 1;
+            selectionInfo.textContent = `${width}×${height} notes`;
+            selectionStatus.style.display = 'block';
+        }
+    }
+
+    startSelection(e) {
+        const rect = e.target.getBoundingClientRect();
+        const gridRect = document.getElementById('gridContainer').getBoundingClientRect();
+        
+        const note = parseInt(e.target.dataset.note);
+        const tick = parseInt(e.target.dataset.tick);
+        
+        this.selection = {
+            start: { note, tick },
+            end: { note, tick },
+            active: true
+        };
+        
+        this.isSelecting = true;
+        
+        const selectionHandler = (e) => {
+            if (!this.isSelecting) return;
+            
+            const targetCell = document.elementFromPoint(e.clientX, e.clientY);
+            if (targetCell && targetCell.classList.contains('note-cell')) {
+                const newNote = parseInt(targetCell.dataset.note);
+                const newTick = parseInt(targetCell.dataset.tick);
+                
+                this.selection.end = { note: newNote, tick: newTick };
+                this.updateSelectionVisual();
+            }
+        };
+        
+        const endSelectionHandler = () => {
+            this.isSelecting = false;
+            document.removeEventListener('mousemove', selectionHandler);
+            document.removeEventListener('mouseup', endSelectionHandler);
+        };
+        
+        document.addEventListener('mousemove', selectionHandler);
+        document.addEventListener('mouseup', endSelectionHandler);
+        
+        this.updateSelectionVisual();
+    }
+
+    getCellFromCoordinates(note, tick) {
+        return document.querySelector(`[data-note="${note}"][data-tick="${tick}"]`);
+    }
+
+    // URL sharing and library methods
+    async getDefaultSongs() {
+        try {
+            // Try to fetch the songs index from assets/songs/index.json
+            const response = await fetch('assets/songs/index.json');
+            if (!response.ok) {
+                // If we can't fetch the index, fall back to hardcoded songs
+                console.warn('Could not fetch songs index, using fallback songs');
+                return this.getFallbackSongs();
+            }
+            
+            const index = await response.json();
+            const songFiles = index.songs || [];
+            
+            if (songFiles.length === 0) {
+                console.warn('No .nbs files found in assets/songs/, using fallback songs');
+                return this.getFallbackSongs();
+            }
+            
+            // Load each NBS file
+            const songs = [];
+            for (const fileName of songFiles) {
+                try {
+                    const songData = await this.loadNBSFile(`assets/songs/${fileName}`);
+                    if (songData) {
+                        songs.push({
+                            name: fileName.replace('.nbs', ''),
+                            author: songData.author || 'Unknown',
+                            description: `Loaded from ${fileName}`,
+                            data: songData
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error loading ${fileName}:`, error);
+                }
+            }
+            
+            return songs;
+        } catch (error) {
+            console.error('Error loading songs from assets/songs/:', error);
+            return this.getFallbackSongs();
+        }
+    }
+
+    getFallbackSongs() {
+        return [
+            {
+                name: "Default Song 1",
+                author: "Minecraft Music Studio",
+                description: "A simple melody to get you started",
+                data: this.createDefaultSong1()
+            },
+            {
+                name: "Default Song 2", 
+                author: "Minecraft Music Studio",
+                description: "A more complex arrangement with multiple tracks",
+                data: this.createDefaultSong2()
+            }
+        ];
+    }
+
+
+
+    async loadNBSFile(filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            
+            // Parse the NBS file using the existing NBS.js parser
+            const song = Song.fromArrayBuffer(arrayBuffer);
+            
+            // Convert to our internal format
+            return this.convertNBSToSongData(song);
+        } catch (error) {
+            console.error(`Error loading NBS file ${filePath}:`, error);
+            return null;
+        }
+    }
+
+    convertNBSToSongData(nbsSong) {
+        // Convert NBS format to our internal song data format
+        const songData = {
+            name: nbsSong.name || 'Unknown Song',
+            author: nbsSong.author || 'Unknown Author',
+            originalAuthor: nbsSong.originalAuthor || '',
+            description: nbsSong.description || '',
+            tempo: Math.min((nbsSong.tempo * 60) / 4, 600), // Convert NBS tempo to BPM, max 600
+            timeSignature: 4,
+            length: nbsSong.length || 64,
+            tracks: []
+        };
+
+        // Convert layers to tracks
+        if (nbsSong.layers && nbsSong.layers.length > 0) {
+            for (let i = 0; i < nbsSong.layers.length; i++) {
+                const layer = nbsSong.layers[i];
+                if (layer && layer.notes) {
+                    const track = {
+                        instrument: layer.instrument || 0,
+                        notes: {},
+                        volume: layer.volume || 100
+                    };
+
+                    // Convert notes
+                    for (const [tick, note] of Object.entries(layer.notes)) {
+                        if (note && typeof note.pitch === 'number') {
+                            track.notes[`${note.pitch},${tick}`] = {
+                                instrument: note.instrument || layer.instrument || 0,
+                                pitch: note.pitch
+                            };
+                        }
+                    }
+
+                    if (Object.keys(track.notes).length > 0) {
+                        songData.tracks.push(track);
+                    }
+                }
+            }
+        }
+
+        // If no tracks were created, create a default track
+        if (songData.tracks.length === 0) {
+            songData.tracks.push({
+                instrument: 0,
+                notes: {},
+                volume: 100
+            });
+        }
+
+        return songData;
+    }
+
+    createDefaultSong1() {
+        // Simple C major scale melody
+        const song = {
+            name: "Default Song 1",
+            author: "Minecraft Music Studio",
+            originalAuthor: "",
+            description: "A simple C major scale melody",
+            tempo: 120,
+            timeSignature: 4,
+            length: 32,
+            tracks: [
+                {
+                    instrument: 0, // Harp
+                    notes: {
+                        "12,0": { instrument: 0, pitch: 12 }, // C4
+                        "12,4": { instrument: 0, pitch: 12 }, // C4
+                        "13,8": { instrument: 0, pitch: 13 }, // C#4
+                        "14,12": { instrument: 0, pitch: 14 }, // D4
+                        "15,16": { instrument: 0, pitch: 15 }, // D#4
+                        "16,20": { instrument: 0, pitch: 16 }, // E4
+                        "17,24": { instrument: 0, pitch: 17 }, // F4
+                        "18,28": { instrument: 0, pitch: 18 }  // F#4
+                    },
+                    volume: 100
+                }
+            ]
+        };
+        return song;
+    }
+
+    createDefaultSong2() {
+        // More complex song with multiple tracks
+        const song = {
+            name: "Default Song 2",
+            author: "Minecraft Music Studio", 
+            originalAuthor: "",
+            description: "A more complex arrangement with melody and bass",
+            tempo: 140,
+            timeSignature: 4,
+            length: 48,
+            tracks: [
+                {
+                    instrument: 0, // Harp - Melody
+                    notes: {
+                        "12,0": { instrument: 0, pitch: 12 }, // C4
+                        "12,8": { instrument: 0, pitch: 12 }, // C4
+                        "14,16": { instrument: 0, pitch: 14 }, // D4
+                        "16,24": { instrument: 0, pitch: 16 }, // E4
+                        "17,32": { instrument: 0, pitch: 17 }, // F4
+                        "19,40": { instrument: 0, pitch: 19 }  // G4
+                    },
+                    volume: 100
+                },
+                {
+                    instrument: 1, // Bass
+                    notes: {
+                        "7,0": { instrument: 1, pitch: 7 },   // C3
+                        "7,16": { instrument: 1, pitch: 7 },  // C3
+                        "9,32": { instrument: 1, pitch: 9 }   // D3
+                    },
+                    volume: 80
+                },
+                {
+                    instrument: 2, // Bass Drum
+                    notes: {
+                        "0,0": { instrument: 2, pitch: 0 },   // Bass Drum
+                        "0,16": { instrument: 2, pitch: 0 },  // Bass Drum
+                        "0,32": { instrument: 2, pitch: 0 }   // Bass Drum
+                    },
+                    volume: 90
+                }
+            ]
+        };
+        return song;
+    }
+
+    encodeSongToURL(song) {
+        try {
+            // Convert song to JSON and compress
+            const jsonString = JSON.stringify(song);
+            
+            // Simple compression: replace common patterns
+            let compressed = jsonString
+                .replace(/"instrument":/g, '"i":')
+                .replace(/"pitch":/g, '"p":')
+                .replace(/"volume":/g, '"v":')
+                .replace(/"name":/g, '"n":')
+                .replace(/"author":/g, '"a":')
+                .replace(/"description":/g, '"d":')
+                .replace(/"tempo":/g, '"t":')
+                .replace(/"tracks":/g, '"tr":')
+                .replace(/"notes":/g, '"nt":');
+            
+            // Convert to base64
+            const base64 = btoa(compressed);
+            
+            // Create URL with song data
+            const url = new URL(window.location);
+            url.searchParams.set('song', base64);
+            return url.toString();
+        } catch (error) {
+            console.error('Error encoding song to URL:', error);
+            return window.location.toString();
+        }
+    }
+
+    decodeSongFromURL() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const songData = urlParams.get('song');
+            
+            if (!songData) return null;
+            
+            // Decode from base64
+            const compressed = atob(songData);
+            
+            // Decompress: restore original property names
+            let jsonString = compressed
+                .replace(/"i":/g, '"instrument":')
+                .replace(/"p":/g, '"pitch":')
+                .replace(/"v":/g, '"volume":')
+                .replace(/"n":/g, '"name":')
+                .replace(/"a":/g, '"author":')
+                .replace(/"d":/g, '"description":')
+                .replace(/"t":/g, '"tempo":')
+                .replace(/"tr":/g, '"tracks":')
+                .replace(/"nt":/g, '"notes":');
+            
+            const song = JSON.parse(jsonString);
+            return song;
+        } catch (error) {
+            console.error('Error decoding song from URL:', error);
+            return null;
+        }
+    }
+
+    loadSongFromURL() {
+        const song = this.decodeSongFromURL();
+        if (song) {
+            this.loadSongData(song);
+            return true;
+        }
+        return false;
+    }
+
+    setupLibraryHandlers() {
+        const libraryModal = document.getElementById('libraryModal');
+        const libraryBtn = document.getElementById('libraryBtn');
+        const closeLibrary = document.getElementById('closeLibrary');
+
+        libraryBtn.addEventListener('click', async () => {
+            await this.populateLibrary();
+            libraryModal.style.display = 'block';
+        });
+
+        closeLibrary.addEventListener('click', () => {
+            libraryModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        libraryModal.addEventListener('click', (e) => {
+            if (e.target === libraryModal) {
+                libraryModal.style.display = 'none';
+            }
+        });
+    }
+
+    setupShareHandlers() {
+        const shareModal = document.getElementById('shareModal');
+        const shareBtn = document.getElementById('shareBtn');
+        const closeShare = document.getElementById('closeShare');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const shareUrlInput = document.getElementById('shareUrl');
+
+        shareBtn.addEventListener('click', () => {
+            const shareUrl = this.encodeSongToURL(this.song);
+            shareUrlInput.value = shareUrl;
+            shareModal.style.display = 'block';
+        });
+
+        closeShare.addEventListener('click', () => {
+            shareModal.style.display = 'none';
+        });
+
+        copyUrlBtn.addEventListener('click', () => {
+            shareUrlInput.select();
+            document.execCommand('copy');
+            copyUrlBtn.textContent = '✅ Copied!';
+            setTimeout(() => {
+                copyUrlBtn.textContent = '📋 Copy';
+            }, 2000);
+        });
+
+        // Close modal when clicking outside
+        shareModal.addEventListener('click', (e) => {
+            if (e.target === shareModal) {
+                shareModal.style.display = 'none';
+            }
+        });
+
+        // Social media share buttons
+        document.getElementById('shareTwitterBtn').addEventListener('click', () => {
+            const url = this.encodeSongToURL(this.song);
+            const text = `Check out my Minecraft song: "${this.song.name}" by ${this.song.author}`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`);
+        });
+
+        document.getElementById('shareDiscordBtn').addEventListener('click', () => {
+            const url = this.encodeSongToURL(this.song);
+            const text = `Check out my Minecraft song: "${this.song.name}" by ${this.song.author}`;
+            window.open(`https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=0&scope=bot`);
+        });
+
+        document.getElementById('shareRedditBtn').addEventListener('click', () => {
+            const url = this.encodeSongToURL(this.song);
+            const text = `Check out my Minecraft song: "${this.song.name}" by ${this.song.author}`;
+            window.open(`https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(text)}`);
+        });
+    }
+
+    async populateLibrary() {
+        const defaultSongsContainer = document.getElementById('defaultSongs');
+        const sharedSongsContainer = document.getElementById('sharedSongs');
+
+        // Clear existing content
+        defaultSongsContainer.innerHTML = '';
+        sharedSongsContainer.innerHTML = '';
+
+        // Reload songs from assets/songs/ directory
+        try {
+            this.defaultSongs = await this.getDefaultSongs();
+        } catch (error) {
+            console.error('Error reloading songs:', error);
+            this.defaultSongs = this.getFallbackSongs();
+        }
+
+        // Populate default songs
+        this.defaultSongs.forEach((song, index) => {
+            const songCard = this.createSongCard(song.data, 'default', index);
+            defaultSongsContainer.appendChild(songCard);
+        });
+
+        // Populate shared songs from URL
+        const sharedSong = this.decodeSongFromURL();
+        if (sharedSong) {
+            const songCard = this.createSongCard(sharedSong, 'shared', 0);
+            sharedSongsContainer.appendChild(songCard);
+        }
+    }
+
+    createSongCard(song, type, index) {
+        const card = document.createElement('div');
+        card.className = 'song-card';
+        card.dataset.type = type;
+        card.dataset.index = index;
+
+        const title = document.createElement('div');
+        title.className = 'song-title';
+        title.textContent = song.name;
+
+        const author = document.createElement('div');
+        author.className = 'song-author';
+        author.textContent = `by ${song.author}`;
+
+        const info = document.createElement('div');
+        info.className = 'song-info';
+        
+        const tempo = document.createElement('span');
+        tempo.textContent = `${song.tempo} BPM`;
+        
+        const tracks = document.createElement('span');
+        tracks.textContent = `${song.tracks.length} track${song.tracks.length !== 1 ? 's' : ''}`;
+
+        info.appendChild(tempo);
+        info.appendChild(tracks);
+
+        card.appendChild(title);
+        card.appendChild(author);
+        card.appendChild(info);
+
+        card.addEventListener('click', () => {
+            this.loadSongData(song);
+            document.getElementById('libraryModal').style.display = 'none';
+        });
+
+        return card;
     }
 }
 
