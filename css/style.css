@@ -608,7 +608,8 @@ button:disabled {
 }
 
 .custom-select {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
     padding: 8px 12px;
     background: #4a4a4a;
@@ -620,6 +621,8 @@ button:disabled {
     font-size: 14px;
     box-shadow: 0 2px 0 #333;
     transition: all 0.2s;
+    box-sizing: border-box;
+    min-height: 40px;
 }
 
 .custom-select:hover {
@@ -1762,6 +1765,12 @@ label {
     background: #5a5a5a;
     transform: translateY(-1px);
     box-shadow: 0 3px 0 #333;
+}
+
+#shareBtn.share-btn {
+    font-size: 16px;
+    padding: 14px 18px;
+    min-height: 48px;
 }
 
 .share-btn.twitter {

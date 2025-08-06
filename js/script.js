@@ -103,6 +103,9 @@ class NBSEditor {
         this.setupGridSizeControl();
         this.updateStatusBar();
         
+        // Set initial button text based on fullViewMode default
+        this.updateFullViewButton();
+        
         // Load songs from assets/songs/ directory
         try {
             this.defaultSongs = await this.getDefaultSongs();
@@ -564,7 +567,7 @@ class NBSEditor {
         
         // Create a gain node for volume control
         const gainNode = this.audioContext.createGain();
-        gainNode.gain.value = track.volume / 100; // Convert percentage to 0-1 range
+        gainNode.gain.value = (track.volume / 100) * 1.5; // 1.5x boost for better default loudness
         
         source.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
@@ -838,6 +841,16 @@ class NBSEditor {
     updateInstrumentSelector() {
         const track = this.song.tracks[this.currentTrackIndex];
         this.selectInstrument(track.instrument);
+    }
+    
+    // Update the full view button text based on current mode
+    updateFullViewButton() {
+        const fullViewBtn = document.getElementById('fullViewBtn');
+        if (fullViewBtn) {
+            fullViewBtn.innerHTML = this.fullViewMode ? 
+                '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View' : 
+                '<img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View';
+        }
     }
 
     setupEventListeners() {
@@ -1438,10 +1451,7 @@ class NBSEditor {
         
         // Set full view as default after importing
         this.fullViewMode = true;
-        const fullViewBtn = document.getElementById('fullViewBtn');
-        if (fullViewBtn) {
-            fullViewBtn.innerHTML = '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View';
-        }
+        this.updateFullViewButton();
         
         // Regenerate grid to show all tracks in full view
         this.generateNoteGrid();
@@ -1512,7 +1522,7 @@ class NBSEditor {
         // Update full view button text to reflect current state
         const fullViewBtn = document.getElementById('fullViewBtn');
         if (fullViewBtn) {
-            fullViewBtn.innerHTML = this.fullViewMode ? '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View' : '<img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View';
+            this.updateFullViewButton();
         }
         
         // Restore note visuals after grid generation
@@ -1550,7 +1560,7 @@ class NBSEditor {
         // Create a gain node for volume control
         const gainNode = this.audioContext.createGain();
         const track = this.song.tracks[this.currentTrackIndex];
-        gainNode.gain.value = track.volume / 100; // Convert percentage to 0-1 range
+        gainNode.gain.value = (track.volume / 100) * 1.5; // 1.5x boost for better default loudness
         
         source.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
@@ -1582,7 +1592,7 @@ class NBSEditor {
         
         // Create a gain node for volume control
         const gainNode = this.audioContext.createGain();
-        gainNode.gain.value = volume / 100; // Convert percentage to 0-1 range
+        gainNode.gain.value = Math.min(volume, 200) / 100; // Allow up to 200% volume
         
         source.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
@@ -1601,7 +1611,7 @@ class NBSEditor {
         try {
             this.fullViewMode = !this.fullViewMode;
             const btn = document.getElementById('fullViewBtn');
-                            btn.innerHTML = this.fullViewMode ? '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View' : '<img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View';
+                            this.updateFullViewButton();
             this.generateNoteGrid();
         } finally {
             // Clear the flag after a short delay
@@ -2022,6 +2032,12 @@ class NBSEditor {
         
         // Play notes for all tracks at this tick
         let notesPlayed = 0;
+        
+        // Log track count occasionally for debugging
+        if (tick % 20 === 0 && this.song.tracks.length === 1) {
+            console.log(`DEBUG: Playing tick ${tick} - Only ${this.song.tracks.length} track available (may be causing single instrument issue)`);
+        }
+        
         for (const track of this.song.tracks) {
             for (const key in track.notes) {
                 const [noteIndex, noteTick] = key.split(',').map(Number);
@@ -2060,9 +2076,10 @@ class NBSEditor {
         const semitones = (noteIndex - 12) + 12; // Minecraft noteblocks: 12 clicks = F♯4 (base pitch)
         source.playbackRate.value = Math.pow(2, semitones / 12);
         
-        // Set volume
+        // Set volume with 1.5x boost for better default loudness
+        const normalizedVolume = (volume / 100) * 1.5;
         gainNode.gain.setValueAtTime(0, time);
-        gainNode.gain.linearRampToValueAtTime(volume / 100, time + 0.01);
+        gainNode.gain.linearRampToValueAtTime(normalizedVolume, time + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
         
         // Connect nodes
