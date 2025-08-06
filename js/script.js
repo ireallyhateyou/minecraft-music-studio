@@ -62,28 +62,28 @@ class NBSEditor {
 
     getDefaultInstruments() {
         return [
-            { id: 0, name: "Harp", color: "#8a6d3b", range: "F♯3–F♯5" }, // Default/Any other blocks
-            { id: 1, name: "Bass", color: "#5a4a28", range: "F♯1–F♯3" }, // Wood
-            { id: 2, name: "Bass Drum", color: "#666666", range: "—" }, // Stone, Blackstone, etc.
-            { id: 3, name: "Snare Drum", color: "#c2b280", range: "—" }, // Sand, Gravel, Concrete Powder
-            { id: 4, name: "Clicks and Sticks", color: "#a0a0a0", range: "—" }, // Glass, Sea Lantern, Beacon
-            { id: 5, name: "Guitar", color: "#c94a4a", range: "F♯2–F♯4" }, // Wool
-            { id: 6, name: "Flute", color: "#7f9fb6", range: "F♯4–F♯6" }, // Clay, Honeycomb Block
-            { id: 7, name: "Bell", color: "#f2b01a", range: "F♯5–F♯7" }, // Block of Gold
-            { id: 8, name: "Chime", color: "#5c9ec7", range: "F♯5–F♯7" }, // Packed Ice
-            { id: 9, name: "Xylophone", color: "#e3dac9", range: "F♯5–F♯7" }, // Bone Block
-            { id: 10, name: "Iron Xylophone", color: "#b0b0b0", range: "F♯3–F♯5" }, // Block of Iron
-            { id: 11, name: "Cow Bell", color: "#7e6b5a", range: "F♯4–F♯6" }, // Soul Sand
-            { id: 12, name: "Didgeridoo", color: "#d87f33", range: "F♯1–F♯3" }, // Pumpkin
-            { id: 13, name: "Bit", color: "#17dd62", range: "F♯3–F♯5" }, // Block of Emerald
-            { id: 14, name: "Banjo", color: "#dcd83e", range: "F♯3–F♯5" }, // Hay Bale
-            { id: 15, name: "Pling", color: "#e8e83c", range: "F♯3–F♯5" }, // Glowstone
-            { id: 16, name: "Skeleton", color: "#d1d1d1", range: "—" }, // Skeleton Skull
-            { id: 17, name: "Wither Skeleton", color: "#4a4a4a", range: "—" }, // Wither Skeleton Skull
-            { id: 18, name: "Zombie", color: "#7a9c7a", range: "—" }, // Zombie Head
-            { id: 19, name: "Creeper", color: "#4a7a4a", range: "—" }, // Creeper Head
-            { id: 20, name: "Piglin", color: "#ffb366", range: "—" }, // Piglin Head
-            { id: 21, name: "Ender Dragon", color: "#9933cc", range: "—" } // Dragon Head
+            { id: 0, name: "Harp", color: "#8a6d3b", range: "F♯3–F♯5", block: "dirt harp.png" }, // Default/Any other blocks
+            { id: 1, name: "Bass", color: "#5a4a28", range: "F♯1–F♯3", block: "wood.png" }, // Wood
+            { id: 2, name: "Bass Drum", color: "#666666", range: "—", block: "stone.png" }, // Stone, Blackstone, etc.
+            { id: 3, name: "Snare Drum", color: "#c2b280", range: "—", block: "sand.png" }, // Sand, Gravel, Concrete Powder
+            { id: 4, name: "Clicks and Sticks", color: "#a0a0a0", range: "—", block: "glass.png" }, // Glass, Sea Lantern, Beacon
+            { id: 5, name: "Guitar", color: "#c94a4a", range: "F♯2–F♯4", block: "wool.png" }, // Wool
+            { id: 6, name: "Flute", color: "#7f9fb6", range: "F♯4–F♯6", block: "clay.png" }, // Clay, Honeycomb Block
+            { id: 7, name: "Bell", color: "#f2b01a", range: "F♯5–F♯7", block: "gold.png" }, // Block of Gold
+            { id: 8, name: "Chime", color: "#5c9ec7", range: "F♯5–F♯7", block: "packed ice.png" }, // Packed Ice
+            { id: 9, name: "Xylophone", color: "#e3dac9", range: "F♯5–F♯7", block: "bone block.png" }, // Bone Block
+            { id: 10, name: "Iron Xylophone", color: "#b0b0b0", range: "F♯3–F♯5", block: "iron.png" }, // Block of Iron
+            { id: 11, name: "Cow Bell", color: "#7e6b5a", range: "F♯4–F♯6", block: "soulsand.png" }, // Soul Sand
+            { id: 12, name: "Didgeridoo", color: "#d87f33", range: "F♯1–F♯3", block: "pumpkin.png" }, // Pumpkin
+            { id: 13, name: "Bit", color: "#17dd62", range: "F♯3–F♯5", block: "emerald.png" }, // Block of Emerald
+            { id: 14, name: "Banjo", color: "#dcd83e", range: "F♯3–F♯5", block: "hay.png" }, // Hay Bale
+            { id: 15, name: "Pling", color: "#e8e83c", range: "F♯3–F♯5", block: "glowstone.png" }, // Glowstone
+            { id: 16, name: "Skeleton", color: "#d1d1d1", range: "—", block: "skeleton head.png" }, // Skeleton Skull
+            { id: 17, name: "Wither Skeleton", color: "#4a4a4a", range: "—", block: "wither skeleton head.png" }, // Wither Skeleton Skull
+            { id: 18, name: "Zombie", color: "#7a9c7a", range: "—", block: "zombie head.png" }, // Zombie Head
+            { id: 19, name: "Creeper", color: "#4a7a4a", range: "—", block: "creeper head.png" }, // Creeper Head
+            { id: 20, name: "Piglin", color: "#ffb366", range: "—", block: "piglin head.png" }, // Piglin Head
+            { id: 21, name: "Ender Dragon", color: "#9933cc", range: "—", block: "dragon head.png" } // Dragon Head
         ];
     }
 
@@ -264,13 +264,91 @@ class NBSEditor {
 
     setupUI() {
         const selector = document.getElementById('instrumentSelector');
-        selector.innerHTML = '';
+        const dropdown = document.getElementById('instrumentDropdown');
+        
+        // Clear existing content
+        dropdown.innerHTML = '';
+        
+        // Populate dropdown options
         this.instruments.forEach(instrument => {
-            const option = document.createElement('option');
-            option.value = instrument.id;
-            option.textContent = instrument.name;
-            selector.appendChild(option);
+            const option = document.createElement('div');
+            option.className = 'custom-select-option';
+            option.dataset.value = instrument.id;
+            option.dataset.block = instrument.block;
+            option.dataset.range = instrument.range;
+            
+            const blockImg = document.createElement('img');
+            blockImg.src = `assets/icons/blocks/${instrument.block}`;
+            blockImg.alt = instrument.name;
+            blockImg.className = 'block-icon';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = instrument.name;
+            
+            const rangeSpan = document.createElement('span');
+            rangeSpan.textContent = ` (${instrument.range})`;
+            rangeSpan.style.opacity = '0.7';
+            rangeSpan.style.fontSize = '12px';
+            
+            option.appendChild(blockImg);
+            option.appendChild(nameSpan);
+            if (instrument.range !== '—') {
+                option.appendChild(rangeSpan);
+            }
+            
+            option.addEventListener('click', () => {
+                this.selectInstrument(instrument.id);
+                this.closeInstrumentDropdown();
+            });
+            
+            dropdown.appendChild(option);
         });
+        
+        // Set up click handler for the selector
+        selector.addEventListener('click', () => {
+            this.toggleInstrumentDropdown();
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!selector.contains(e.target) && !dropdown.contains(e.target)) {
+                this.closeInstrumentDropdown();
+            }
+        });
+    }
+    
+    toggleInstrumentDropdown() {
+        const dropdown = document.getElementById('instrumentDropdown');
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+    
+    closeInstrumentDropdown() {
+        const dropdown = document.getElementById('instrumentDropdown');
+        dropdown.style.display = 'none';
+    }
+    
+    selectInstrument(instrumentId) {
+        const instrument = this.instruments[instrumentId];
+        const selector = document.getElementById('instrumentSelector');
+        const track = this.song.tracks[this.currentTrackIndex];
+        
+        // Update the selector display
+        selector.innerHTML = `
+            <img src="assets/icons/blocks/${instrument.block}" alt="${instrument.name}" class="block-icon">
+            <span>${instrument.name}</span>
+        `;
+        
+        // Update the current track's instrument
+        track.instrument = instrumentId;
+        
+        // Update all options to show selection state
+        document.querySelectorAll('.custom-select-option').forEach(option => {
+            option.classList.toggle('selected', parseInt(option.dataset.value) === instrumentId);
+        });
+        
+        // Update any existing notes' colors
+        this.updateTrackColors();
+        this.renderTrackTabs();
     }
 
     generateNoteGrid() {
@@ -390,9 +468,6 @@ class NBSEditor {
         
         // Show warning if any notes are outside the displayed range
         this.checkForNotesOutsideRange();
-        
-        // Add a button to expand the view if notes are outside range
-        this.addExpandViewButton();
         
 
         } finally {
@@ -695,8 +770,20 @@ class NBSEditor {
         this.song.tracks.forEach((track, idx) => {
             const tab = document.createElement('button');
             tab.className = 'track-tab' + (idx === this.currentTrackIndex ? ' active' : '');
-            const instrumentName = this.instruments[track.instrument]?.name || `Instrument ${track.instrument}`;
-            tab.textContent = instrumentName;
+            const instrument = this.instruments[track.instrument] || this.instruments[0];
+            
+            // Create block image
+            const blockImg = document.createElement('img');
+            blockImg.src = `assets/icons/blocks/${instrument.block}`;
+            blockImg.alt = instrument.name;
+            blockImg.className = 'block-icon';
+            
+            // Create text span
+            const textSpan = document.createElement('span');
+            textSpan.textContent = instrument.name;
+            
+            tab.appendChild(blockImg);
+            tab.appendChild(textSpan);
             tab.addEventListener('click', () => {
                 this.currentTrackIndex = idx;
                 this.generateNoteGrid();
@@ -749,10 +836,8 @@ class NBSEditor {
 
     // Add a method to update the instrument selector to match the current track
     updateInstrumentSelector() {
-        const selector = document.getElementById('instrumentSelector');
-        if (!selector) return;
         const track = this.song.tracks[this.currentTrackIndex];
-        selector.value = track.instrument;
+        this.selectInstrument(track.instrument);
     }
 
     setupEventListeners() {
@@ -876,14 +961,7 @@ class NBSEditor {
         document.getElementById('copyBtn').addEventListener('click', () => this.copySelection());
         document.getElementById('pasteBtn').addEventListener('click', () => this.pasteSelection());
         
-        // Settings
-        document.getElementById('instrumentSelector').addEventListener('change', (e) => {
-            const track = this.song.tracks[this.currentTrackIndex];
-            track.instrument = parseInt(e.target.value);
-            this.renderTrackTabs(); // Update tab label if instrument changes
-            this.generateNoteGrid(); // Regenerate grid with new note range
-            this.saveState(); // Save state after changing instrument
-        });
+        // Instrument selector is now handled in setupUI() with custom dropdown
 
         document.getElementById('volumeSlider').addEventListener('input', (e) => {
             const track = this.song.tracks[this.currentTrackIndex];
@@ -1362,7 +1440,7 @@ class NBSEditor {
         this.fullViewMode = true;
         const fullViewBtn = document.getElementById('fullViewBtn');
         if (fullViewBtn) {
-            fullViewBtn.textContent = '👁️ Track View';
+            fullViewBtn.innerHTML = '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View';
         }
         
         // Regenerate grid to show all tracks in full view
@@ -1434,7 +1512,7 @@ class NBSEditor {
         // Update full view button text to reflect current state
         const fullViewBtn = document.getElementById('fullViewBtn');
         if (fullViewBtn) {
-            fullViewBtn.textContent = this.fullViewMode ? '👁️ Track View' : '👁️ Full View';
+            fullViewBtn.innerHTML = this.fullViewMode ? '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View' : '<img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View';
         }
         
         // Restore note visuals after grid generation
@@ -1523,7 +1601,7 @@ class NBSEditor {
         try {
             this.fullViewMode = !this.fullViewMode;
             const btn = document.getElementById('fullViewBtn');
-            btn.textContent = this.fullViewMode ? '👁️ Track View' : '👁️ Full View';
+                            btn.innerHTML = this.fullViewMode ? '<img src="assets/icons/magnifying glass.png" alt="Track View" class="button-icon"> Track View' : '<img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View';
             this.generateNoteGrid();
         } finally {
             // Clear the flag after a short delay
@@ -1716,90 +1794,9 @@ class NBSEditor {
         }
     }
 
-    // Add a button to expand the view to show all notes
-    addExpandViewButton() {
-        // Remove any existing expand button
-        const existingButton = document.getElementById('expandViewBtn');
-        if (existingButton) {
-            existingButton.remove();
-        }
-        
-        // Check if there are notes outside the current range
-        const noteLabels = document.querySelectorAll('.note-label');
-        if (noteLabels.length === 0) return;
-        
-        const displayedMinNote = parseInt(noteLabels[0].dataset.note || '0');
-        const displayedMaxNote = parseInt(noteLabels[noteLabels.length - 1].dataset.note || '0');
-        
-        let hasNotesOutsideRange = false;
-        this.song.tracks.forEach(track => {
-            Object.entries(track.notes).forEach(([key, note]) => {
-                const [noteIndex, tick] = key.split(',').map(Number);
-                if (noteIndex < displayedMinNote || noteIndex > displayedMaxNote) {
-                    hasNotesOutsideRange = true;
-                }
-            });
-        });
-        
-        if (hasNotesOutsideRange) {
-            // Add expand button to the piano roll
-            const pianoRoll = document.querySelector('.piano-roll');
-            if (pianoRoll) {
-                const expandBtn = document.createElement('button');
-                expandBtn.id = 'expandViewBtn';
-                expandBtn.textContent = '🔍 Show All Notes';
-                expandBtn.className = 'expand-view-btn';
-                expandBtn.style.cssText = `
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    z-index: 1000;
-                    background: #ff6b6b;
-                    color: white;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-family: 'Minecraft Regular', monospace;
-                    font-size: 12px;
-                    cursor: pointer;
-                `;
-                
-                expandBtn.addEventListener('click', () => {
-                    this.expandToShowAllNotes();
-                });
-                
-                pianoRoll.appendChild(expandBtn);
-            }
-        }
-    }
 
-    // Expand the view to show all notes in the song
-    expandToShowAllNotes() {
-        // Find the actual min and max notes used in the song
-        let actualMinNote = 255;
-        let actualMaxNote = 0;
-        let hasNotes = false;
-        
-        this.song.tracks.forEach(track => {
-            Object.entries(track.notes).forEach(([key, note]) => {
-                const [noteIndex, tick] = key.split(',').map(Number);
-                if (noteIndex >= 0 && noteIndex <= 24) {
-                    actualMinNote = Math.min(actualMinNote, noteIndex);
-                    actualMaxNote = Math.max(actualMaxNote, noteIndex);
-                    hasNotes = true;
-                }
-            });
-        });
-        
-        if (hasNotes) {
-            // Add padding to the range
-            actualMinNote = Math.max(0, actualMinNote - 2);
-            actualMaxNote = Math.min(24, actualMaxNote + 2);
-            
-            // Regenerate grid with the full range
-            this.generateNoteGridWithRange(actualMinNote, actualMaxNote);
-        }
-    }
+
+
 
     // Generate note grid with a specific note range
     generateNoteGridWithRange(minNote, maxNote) {
@@ -2586,10 +2583,19 @@ class NBSEditor {
                                 noteIndex = Math.max(0, Math.min(24, noteIndex % 25));
                             }
                             
+                            // Preserve the individual note's instrument from NBS (same as manual import)
+                            const noteInstrument = note.instrument?.id || 0;
+                            
                             track.notes[`${noteIndex},${tick}`] = {
-                                instrument: note.instrument?.id || layer.instrument || 0,
+                                instrument: noteInstrument,
                                 pitch: noteIndex
                             };
+                            
+                            // Update track instrument to the most common instrument in this track
+                            // This is for display purposes only - individual notes keep their own instruments
+                            if (Object.keys(track.notes).length === 1) {
+                                track.instrument = noteInstrument;
+                            }
                         }
                     }
 
@@ -2815,7 +2821,7 @@ class NBSEditor {
         this.saveState();
         
         // Show a brief notification
-        this.updateStatusBar('New song created! ✨');
+                    this.updateStatusBar('New song created!');
     }
 
     setupShareHandlers() {
@@ -2840,7 +2846,7 @@ class NBSEditor {
             document.execCommand('copy');
             copyUrlBtn.textContent = '✅ Copied!';
             setTimeout(() => {
-                copyUrlBtn.textContent = '📋 Copy';
+                copyUrlBtn.innerHTML = '<img src="assets/icons/copy.png" alt="Copy" class="button-icon"> Copy';
             }, 2000);
         });
 

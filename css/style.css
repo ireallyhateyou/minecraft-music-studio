@@ -76,6 +76,13 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+}
+
+.help-btn .button-icon {
+    width: 20px;
+    height: 20px;
+    margin: 0;
 }
 
 .help-btn:hover {
@@ -569,6 +576,90 @@ button:disabled {
     cursor: not-allowed;
     transform: none;
     box-shadow: 0 2px 0 #2a2a2a;
+}
+
+.button-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.block-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    vertical-align: middle;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.track-tab .block-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+}
+
+.instrument-selector-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.custom-select {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: #4a4a4a;
+    color: white;
+    border: 2px solid #666;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Minecraft Regular', monospace;
+    font-size: 14px;
+    box-shadow: 0 2px 0 #333;
+    transition: all 0.2s;
+}
+
+.custom-select:hover {
+    background: #5a5a5a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 0 #333;
+}
+
+.custom-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #4a4a4a;
+    border: 2px solid #666;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.custom-select-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    font-family: 'Minecraft Regular', monospace;
+    font-size: 14px;
+    color: white;
+    transition: background-color 0.2s;
+}
+
+.custom-select-option:hover {
+    background: #5a5a5a;
+}
+
+.custom-select-option.selected {
+    background: #6a6a6a;
 }
 
 /* Make playback buttons more prominent */
@@ -1381,6 +1472,12 @@ label {
         margin-bottom: 6px;
         font-size: 14px;
         min-height: 36px;
+    }
+    
+    .button-icon {
+        width: 18px;
+        height: 18px;
+        margin-right: 8px;
     }
 }
 

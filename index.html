@@ -11,7 +11,7 @@
         <div class="header">
             <h1>Minecraft Music Studio</h1>
             <div class="header-controls">
-                <button id="helpBtn" class="help-btn" title="Keyboard Shortcuts">❓</button>
+                <button id="helpBtn" class="help-btn" title="Keyboard Shortcuts"><img src="assets/icons/question.png" alt="Help" class="button-icon"></button>
             </div>
         </div>
         
@@ -115,7 +115,7 @@
                         <p>Copy this URL to share your song:</p>
                         <div class="url-container">
                             <input type="text" id="shareUrl" readonly>
-                            <button id="copyUrlBtn" class="copy-btn">📋 Copy</button>
+                            <button id="copyUrlBtn" class="copy-btn"><img src="assets/icons/copy.png" alt="Copy" class="button-icon"> Copy</button>
                         </div>
                     </div>
                     <div class="share-section">
@@ -169,41 +169,47 @@
                 <label for="songDescription">Description:</label>
                 <textarea id="songDescription"></textarea>
                 <div class="song-buttons-container">
-                    <button id="newSongBtn" class="song-info-btn" title="New Song">✨ New Song</button>
-                    <button id="libraryBtn" class="song-info-btn" title="Song Library">📚 Song Library</button>
+                    <button id="newSongBtn" class="song-info-btn" title="New Song"><img src="assets/icons/new.png" alt="New Song" class="button-icon"> New Song</button>
+                    <button id="libraryBtn" class="song-info-btn" title="Song Library"><img src="assets/icons/books.png" alt="Song Library" class="button-icon"> Song Library</button>
                 </div>
             </div>
             <div class="button-section">
                 <div class="button-row">
-                    <button id="playBtn">▶️ Play</button>
-                    <button id="pauseBtn" disabled>⏸️ Pause</button>
+                    <button id="playBtn"><img src="assets/icons/play.png" alt="Play" class="button-icon"> Play</button>
+                    <button id="pauseBtn" disabled><img src="assets/icons/pause.png" alt="Pause" class="button-icon"> Pause</button>
                 </div>
                 <div class="button-row">
-                    <button id="stopBtn" disabled>⏹️ Stop</button>
-                    <button id="clearBtn">🗑️ Clear</button>
+                    <button id="stopBtn" disabled><img src="assets/icons/stop.png" alt="Stop" class="button-icon"> Stop</button>
+                    <button id="clearBtn"><img src="assets/icons/trash.png" alt="Clear" class="button-icon"> Clear</button>
                 </div>
                 <div class="button-row">
                     <button id="undoBtn" disabled>↶ Undo</button>
                     <button id="redoBtn" disabled>↷ Redo</button>
                 </div>
                 <div class="button-row">
-                    <button id="exportBtn">💾 Export NBS</button>
-                    <button id="importBtn">📁 Import NBS</button>
+                    <button id="exportBtn"><img src="assets/icons/disk.png" alt="Export" class="button-icon"> Export NBS</button>
+                    <button id="importBtn"><img src="assets/icons/folder.png" alt="Import" class="button-icon"> Import NBS</button>
                 </div>
                 <div class="button-row">
-                    <button id="copyBtn">📋 Copy</button>
-                    <button id="pasteBtn" disabled>📋 Paste</button>
+                    <button id="copyBtn"><img src="assets/icons/copy.png" alt="Copy" class="button-icon"> Copy</button>
+                    <button id="pasteBtn" disabled><img src="assets/icons/copy.png" alt="Paste" class="button-icon"> Paste</button>
                 </div>
                 <div class="button-row">
-                    <button id="shareBtn" class="share-btn">📤 Share Song</button>
+                    <button id="shareBtn" class="share-btn"><img src="assets/icons/tray.png" alt="Share" class="button-icon"> Share Song</button>
                 </div>
             </div>
             <div class="settings-section">
                 <div class="instrument-control">
                     <label>Instrument:</label>
-                    <select id="instrumentSelector">
-                        <!-- Instruments will be populated by JS -->
-                    </select>
+                    <div class="instrument-selector-container">
+                        <div class="custom-select" id="instrumentSelector">
+                            <img src="assets/icons/blocks/dirt harp.png" alt="Harp" class="block-icon">
+                            <span>Harp</span>
+                        </div>
+                        <div class="custom-select-dropdown" id="instrumentDropdown">
+                            <!-- Options will be populated by JS -->
+                        </div>
+                    </div>
                 </div>
                 <div class="volume-control">
                     <label>Volume:</label>
@@ -227,7 +233,7 @@
                         <span id="gridSizeValue">64</span>
                     </div>
                 </div>
-                <button id="fullViewBtn" class="full-width-btn">👁️ Full View</button>
+                <button id="fullViewBtn" class="full-width-btn"><img src="assets/icons/magnifying glass.png" alt="Full View" class="button-icon"> Full View</button>
             </div>
         </div>
 
