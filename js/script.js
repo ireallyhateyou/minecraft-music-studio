@@ -349,8 +349,7 @@ class NBSEditor {
             option.classList.toggle('selected', parseInt(option.dataset.value) === instrumentId);
         });
         
-        // Update any existing notes' colors
-        this.updateTrackColors();
+        // Update track tabs to reflect the new instrument
         this.renderTrackTabs();
     }
 
