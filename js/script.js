@@ -28,7 +28,7 @@ class NBSEditor {
         this.isDragging = false;
         this.playInterval = null;
         this.currentTrackIndex = 0; // Track currently being edited/viewed
-        this.fullViewMode = false; // Track full view state
+        this.fullViewMode = true; // Track full view state - default to true
         this.audioInitializing = false; // Flag to prevent multiple simultaneous audio initializations
         
         // New features
@@ -44,11 +44,13 @@ class NBSEditor {
         this.defaultSongs = []; // Will be loaded asynchronously
         this.sharedSongs = [];
         
-        // Default note names (will be updated per instrument)
-        this.noteNames = [
-            'F♯3', 'G3', 'G♯3', 'A3', 'A♯3', 'B3', 'C4', 'C♯4', 'D4', 'D♯4', 'E4', 'F4', 'F♯4',
-            'G4', 'G♯4', 'A4', 'A♯4', 'B4', 'C5', 'C♯5', 'D5', 'D♯5', 'E5', 'F5', 'F♯5'
-        ];
+        // Generate note names for range (F♯3 to F♯5 = notes 0-24)
+        this.noteNames = [];
+        const noteNames = ['F♯3', 'G3', 'G♯3', 'A3', 'A♯3', 'B3', 'C4', 'C♯4', 'D4', 'D♯4', 'E4', 'F4', 'F♯4',
+                          'G4', 'G♯4', 'A4', 'A♯4', 'B4', 'C5', 'C♯5', 'D5', 'D♯5', 'E5', 'F5', 'F♯5'];
+        for (let i = 0; i <= 24; i++) {
+            this.noteNames[i] = noteNames[i] || `Note ${i}`;
+        }
 
         // Undo/Redo system
         this.history = [];
@@ -132,6 +134,8 @@ class NBSEditor {
                 });
             }
         }
+        
+
         
         // Show audio notice initially
         const audioNotice = document.getElementById('audioNotice');
@@ -270,13 +274,24 @@ class NBSEditor {
     }
 
     generateNoteGrid() {
-        const gridContainer = document.getElementById('gridContainer');
-        const noteLabels = document.querySelector('.piano-keys');
-        const tickLabels = document.querySelector('.tick-labels');
+        // Prevent multiple calls in quick succession
+        if (this._generatingGrid) {
+            console.log('Skipping generateNoteGrid - already in progress');
+            return;
+        }
         
-        noteLabels.innerHTML = '';
-        tickLabels.innerHTML = '';
-        gridContainer.innerHTML = '';
+        this._generatingGrid = true;
+        
+        try {
+            
+            
+            const gridContainer = document.getElementById('gridContainer');
+            const noteLabels = document.querySelector('.piano-keys');
+            const tickLabels = document.querySelector('.tick-labels');
+            
+            noteLabels.innerHTML = '';
+            tickLabels.innerHTML = '';
+            gridContainer.innerHTML = '';
         
         // Use the full song length for the visual grid
         const visualTicks = this.totalTicks;
@@ -285,15 +300,18 @@ class NBSEditor {
         document.documentElement.style.setProperty('--song-length', visualTicks);
         
         // Analyze the song to find the actual note range used
-        let minNote = 24; // Start with highest note (F#5)
-        let maxNote = 0;  // Start with lowest note (F#3)
+        let minNote = 24; // Start with highest possible note (F♯5)
+        let maxNote = 0;  // Start with lowest possible note (F♯3)
         let hasNotes = false;
         
         if (this.fullViewMode) {
             // In full view, check all tracks for notes
-            for (const track of this.song.tracks) {
+            for (let trackIndex = 0; trackIndex < this.song.tracks.length; trackIndex++) {
+                const track = this.song.tracks[trackIndex];
+                
                 for (const key in track.notes) {
                     const [noteIndex] = key.split(',').map(Number);
+                    
                     if (noteIndex >= 0 && noteIndex <= 24) {
                         minNote = Math.min(minNote, noteIndex);
                         maxNote = Math.max(maxNote, noteIndex);
@@ -304,8 +322,10 @@ class NBSEditor {
         } else {
             // In track view, only check current track
             const track = this.song.tracks[this.currentTrackIndex];
+            
             for (const key in track.notes) {
                 const [noteIndex] = key.split(',').map(Number);
+                
                 if (noteIndex >= 0 && noteIndex <= 24) {
                     minNote = Math.min(minNote, noteIndex);
                     maxNote = Math.max(maxNote, noteIndex);
@@ -314,15 +334,17 @@ class NBSEditor {
             }
         }
         
-        // If no notes found, use default range (middle octave)
-        if (!hasNotes) {
-            minNote = 8;  // C4
-            maxNote = 20; // C5
+        // If no notes found OR in full view mode, use full Minecraft Note Block range
+        if (!hasNotes || this.fullViewMode) {
+            minNote = 0;  // F♯3
+            maxNote = 24; // F♯5
         }
         
-        // Add some padding to the range
-        minNote = Math.max(0, minNote - 2);
-        maxNote = Math.min(24, maxNote + 2);
+        // Add some padding to the range (but not in full view mode)
+        if (!this.fullViewMode) {
+            minNote = Math.max(0, minNote - 2);
+            maxNote = Math.min(24, maxNote + 2);
+        }
         
         const noteRange = maxNote - minNote + 1;
         
@@ -339,14 +361,17 @@ class NBSEditor {
         
         // Generate note labels
         const noteNames = this.getCurrentNoteNames();
+        
         for (let i = minNote; i <= maxNote; i++) {
             const label = document.createElement('div');
             label.className = 'note-label';
-            label.textContent = noteNames[i] || '';
+            const noteName = noteNames[i] || `Note ${i}`;
+            label.textContent = noteName;
+            label.dataset.note = i;
             noteLabels.appendChild(label);
         }
         
-        // Generate grid cells in column-major order (note first, then tick) to match CSS Grid layout
+        // Generate grid cells
         let cellCount = 0;
         for (let i = minNote; i <= maxNote; i++) {
             for (let tick = 0; tick < visualTicks; tick++) {
@@ -359,12 +384,23 @@ class NBSEditor {
             }
         }
         
-        // Update CSS grid template rows to match the new note range
-        const gridContainerStyle = gridContainer.style;
-        gridContainerStyle.gridTemplateRows = `repeat(${noteRange}, 25px)`;
+
         
-        // Restore visual state of notes after regenerating grid
         this.restoreNoteVisuals();
+        
+        // Show warning if any notes are outside the displayed range
+        this.checkForNotesOutsideRange();
+        
+        // Add a button to expand the view if notes are outside range
+        this.addExpandViewButton();
+        
+
+        } finally {
+            // Clear the flag after a short delay to prevent rapid successive calls
+            setTimeout(() => {
+                this._generatingGrid = false;
+            }, 100);
+        }
     }
 
     // Update all references to this.song.notes and this.song.instruments to use the first track for now
@@ -853,6 +889,7 @@ class NBSEditor {
             const track = this.song.tracks[this.currentTrackIndex];
             track.volume = parseInt(e.target.value);
             document.getElementById('volumeValue').textContent = `${track.volume}%`;
+            this.saveState(); // Save state when volume changes
         });
 
         document.getElementById('tempoSlider').addEventListener('input', (e) => {
@@ -1211,8 +1248,47 @@ class NBSEditor {
                 const note = layer.notes[tick];
                 
                 if (note) {
-                    // Convert Minecraft key (33-57) to note index (0-24)
-                    const noteIndex = Math.max(0, Math.min(24, note.key - 33));
+                    console.log(`=== NBS NOTE IMPORT DEBUG ===`);
+                    console.log(`Original NBS note:`, note);
+                    console.log(`Note key: ${note.key}, pitch: ${note.pitch}, tick: ${tick}`);
+                    
+                    // Convert NBS note to Minecraft Note Block range (0-24)
+                    // NBS files have both key and pitch fields
+                    // Based on NBS format, 'key' is typically the MIDI note number (0-127)
+                    // and 'pitch' is usually a pitch bend value
+                    let noteIndex = note.key;
+                    
+                    console.log(`Using noteIndex: ${noteIndex} (from key: ${note.key}, pitch: ${note.pitch})`);
+                    
+                    // Debug: Check if this is a valid note value
+                    if (typeof noteIndex !== 'number' || noteIndex < 0 || noteIndex > 127) {
+                        console.warn(`Invalid note value: ${noteIndex}`);
+                        continue;
+                    }
+                    
+                    // Map MIDI note numbers to Minecraft Note Block range (0-24)
+                    // Minecraft Note Blocks range from F#3 (MIDI 42) to F#5 (MIDI 66)
+                    // So we need to map MIDI notes 42-66 to our 0-24 range
+                    if (noteIndex >= 42 && noteIndex <= 66) {
+                        // Direct mapping from MIDI to Minecraft Note Block range
+                        noteIndex = noteIndex - 42; // Convert to 0-24 range
+                        console.log(`✓ MIDI note ${noteIndex + 42} maps to Minecraft Note Block index: ${noteIndex}`);
+                    } else if (noteIndex < 42) {
+                        // Notes below F#3 - map to lowest available note
+                        noteIndex = 0;
+                        console.log(`⚠ MIDI note ${noteIndex} is below F#3, mapping to index 0`);
+                    } else if (noteIndex > 66) {
+                        // Notes above F#5 - map to highest available note
+                        noteIndex = 24;
+                        console.log(`⚠ MIDI note ${noteIndex} is above F#5, mapping to index 24`);
+                    } else {
+                        // Fallback for any other cases
+                        noteIndex = Math.max(0, Math.min(24, noteIndex % 25));
+                        console.log(`⚠ MIDI note ${noteIndex} mapped to index ${noteIndex} (fallback)`);
+                    }
+                    
+                    console.log(`Final mapped index: ${noteIndex}`);
+                    
                     const noteKey = `${noteIndex},${tick}`;
                     
                     // Preserve the individual note's instrument from NBS
@@ -1237,9 +1313,8 @@ class NBSEditor {
             this.song.tracks.push(track);
         });
         
-        // If no tracks were created, add a default one
+        // If no tracks were created, add a default track
         if (this.song.tracks.length === 0) {
-            console.warn('No tracks created, adding default track');
             this.song.tracks.push({
                 instrument: 0,
                 notes: {},
@@ -1294,6 +1369,21 @@ class NBSEditor {
         this.generateNoteGrid();
         this.restoreNoteVisuals();
         
+
+        
+        // Summary of imported notes
+        console.log('=== NBS IMPORT SUMMARY ===');
+        this.song.tracks.forEach((track, trackIndex) => {
+            // Show all unique note indices in this track
+            const noteIndices = new Set();
+            Object.keys(track.notes).forEach(key => {
+                const [noteIndex] = key.split(',').map(Number);
+                noteIndices.add(noteIndex);
+            });
+            console.log(`Track ${trackIndex} unique note indices:`, Array.from(noteIndices).sort((a, b) => a - b));
+        });
+        console.log('=== NBS IMPORT SUMMARY END ===');
+        
         return true;
     }
 
@@ -1340,6 +1430,12 @@ class NBSEditor {
         this.renderTrackTabs();
         this.updateInstrumentSelector();
         this.updateVolumeSlider();
+        
+        // Update full view button text to reflect current state
+        const fullViewBtn = document.getElementById('fullViewBtn');
+        if (fullViewBtn) {
+            fullViewBtn.textContent = this.fullViewMode ? '👁️ Track View' : '👁️ Full View';
+        }
         
         // Restore note visuals after grid generation
         this.restoreNoteVisuals();
@@ -1416,10 +1512,25 @@ class NBSEditor {
     }
 
     toggleFullView() {
-        this.fullViewMode = !this.fullViewMode;
-        const btn = document.getElementById('fullViewBtn');
-        btn.textContent = this.fullViewMode ? '👁️ Track View' : '👁️ Full View';
-        this.generateNoteGrid();
+        // Prevent rapid successive calls
+        if (this._togglingFullView) {
+            console.log('Skipping toggleFullView - already in progress');
+            return;
+        }
+        
+        this._togglingFullView = true;
+        
+        try {
+            this.fullViewMode = !this.fullViewMode;
+            const btn = document.getElementById('fullViewBtn');
+            btn.textContent = this.fullViewMode ? '👁️ Track View' : '👁️ Full View';
+            this.generateNoteGrid();
+        } finally {
+            // Clear the flag after a short delay
+            setTimeout(() => {
+                this._togglingFullView = false;
+            }, 200);
+        }
     }
 
     // Get note range for a specific instrument
@@ -1429,8 +1540,15 @@ class NBSEditor {
         
         const range = instrument.range;
         if (range === "—") {
-            // Drums/percussion - only one note
-            return ["Drum"];
+            // Drums/percussion - use the full note range for visual consistency
+            // Even though drums only have one sound, we show the full range for editing
+            return this.noteNames;
+        }
+        
+        // For full view mode or when we want the complete range, return all note names
+        // This ensures we always show the full Minecraft Note Block range (F♯3 to F♯5)
+        if (this.fullViewMode || !this.song.tracks[this.currentTrackIndex]?.notes || Object.keys(this.song.tracks[this.currentTrackIndex].notes).length === 0) {
+            return this.noteNames;
         }
         
         // Parse range like "F♯3–F♯5" or "F♯1–F♯3"
@@ -1483,17 +1601,49 @@ class NBSEditor {
             return this.noteNames;
         } else {
             const track = this.song.tracks[this.currentTrackIndex];
-            return this.getNoteRangeForInstrument(track.instrument);
+            const instrumentNames = this.getNoteRangeForInstrument(track.instrument);
+            return instrumentNames;
         }
     }
 
     // Restore visual state of notes after grid regeneration
     restoreNoteVisuals() {
-        let restoredCount = 0;
+        // Prevent multiple calls in quick succession
+        if (this._restoringNotes) {
+            console.log('Skipping restoreNoteVisuals - already in progress');
+            return;
+        }
         
-        if (this.fullViewMode) {
-            // Full view: Show notes from all tracks
-            this.song.tracks.forEach((track, trackIndex) => {
+        this._restoringNotes = true;
+        
+        try {
+            let restoredCount = 0;
+            
+                        if (this.fullViewMode) {
+                // Full view: Show notes from all tracks
+                this.song.tracks.forEach((track, trackIndex) => {
+                    Object.entries(track.notes).forEach(([key, note]) => {
+                        const [noteIndex, tick] = key.split(',').map(Number);
+                        
+                        const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
+                        
+                        if (cell) {
+                            cell.classList.add('active');
+                            // Use the note's individual instrument for color
+                            const noteInstrument = note.instrument;
+                            cell.style.backgroundColor = this.instruments[noteInstrument]?.color || '';
+                            // Add track index as data attribute for identification
+                            cell.dataset.trackIndex = trackIndex;
+                            restoredCount++;
+                        }
+                    });
+                });
+                
+
+            } else {
+                // Track view: Show only current track's notes
+                const track = this.song.tracks[this.currentTrackIndex];
+                
                 Object.entries(track.notes).forEach(([key, note]) => {
                     const [noteIndex, tick] = key.split(',').map(Number);
                     
@@ -1504,42 +1654,230 @@ class NBSEditor {
                         // Use the note's individual instrument for color
                         const noteInstrument = note.instrument;
                         cell.style.backgroundColor = this.instruments[noteInstrument]?.color || '';
-                        // Add track index as data attribute for identification
-                        cell.dataset.trackIndex = trackIndex;
+                        cell.dataset.trackIndex = this.currentTrackIndex;
                         restoredCount++;
-                    } else {
-                        console.warn(`Could not find cell for note at ${noteIndex},${tick} from track ${trackIndex}`);
                     }
                 });
-            });
-            
-
-        } else {
-            // Track view: Show only current track's notes
-            const track = this.song.tracks[this.currentTrackIndex];
-            
-            Object.entries(track.notes).forEach(([key, note]) => {
-                const [noteIndex, tick] = key.split(',').map(Number);
                 
-                const cell = document.querySelector(`.note-cell[data-note="${noteIndex}"][data-tick="${tick}"]`);
-                
-                if (cell) {
-                    cell.classList.add('active');
-                    // Use the note's individual instrument for color
-                    const noteInstrument = note.instrument;
-                    cell.style.backgroundColor = this.instruments[noteInstrument]?.color || '';
-                    cell.dataset.trackIndex = this.currentTrackIndex;
-                    restoredCount++;
-                } else {
-                    console.warn(`Could not find cell for note at ${noteIndex},${tick}`);
-                }
-            });
-            
 
+            }
+        } finally {
+            // Clear the flag after a short delay to prevent rapid successive calls
+            setTimeout(() => {
+                this._restoringNotes = false;
+            }, 100);
         }
     }
 
+    // Check if any notes are outside the currently displayed range
+    checkForNotesOutsideRange() {
+        const noteLabels = document.querySelectorAll('.note-label');
+        if (noteLabels.length === 0) return;
+        
+        const displayedMinNote = parseInt(noteLabels[0].dataset.note || '0');
+        const displayedMaxNote = parseInt(noteLabels[noteLabels.length - 1].dataset.note || '0');
+        
+        let notesOutsideRange = [];
+        
+        this.song.tracks.forEach((track, trackIndex) => {
+            Object.entries(track.notes).forEach(([key, note]) => {
+                const [noteIndex, tick] = key.split(',').map(Number);
+                
+                if (noteIndex < displayedMinNote || noteIndex > displayedMaxNote) {
+                    notesOutsideRange.push({
+                        noteIndex,
+                        tick,
+                        trackIndex,
+                        noteName: this.noteNames[noteIndex] || `Note ${noteIndex}`
+                    });
+                }
+            });
+        });
+        
+        if (notesOutsideRange.length > 0) {
+            console.warn(`Found ${notesOutsideRange.length} notes outside the displayed range:`, notesOutsideRange);
+            
+            // Update status bar to show this information
+            const statusBar = document.querySelector('.status-bar');
+            if (statusBar) {
+                const statusInfo = document.getElementById('statusInfo');
+                if (statusInfo) {
+                    statusInfo.textContent = `⚠️ ${notesOutsideRange.length} notes outside view (${displayedMinNote}-${displayedMaxNote})`;
+                    statusInfo.style.color = '#ff6b6b';
+                }
+            }
+        } else {
+            // Clear the warning
+            const statusInfo = document.getElementById('statusInfo');
+            if (statusInfo) {
+                statusInfo.textContent = '';
+                statusInfo.style.color = '';
+            }
+        }
+    }
 
+    // Add a button to expand the view to show all notes
+    addExpandViewButton() {
+        // Remove any existing expand button
+        const existingButton = document.getElementById('expandViewBtn');
+        if (existingButton) {
+            existingButton.remove();
+        }
+        
+        // Check if there are notes outside the current range
+        const noteLabels = document.querySelectorAll('.note-label');
+        if (noteLabels.length === 0) return;
+        
+        const displayedMinNote = parseInt(noteLabels[0].dataset.note || '0');
+        const displayedMaxNote = parseInt(noteLabels[noteLabels.length - 1].dataset.note || '0');
+        
+        let hasNotesOutsideRange = false;
+        this.song.tracks.forEach(track => {
+            Object.entries(track.notes).forEach(([key, note]) => {
+                const [noteIndex, tick] = key.split(',').map(Number);
+                if (noteIndex < displayedMinNote || noteIndex > displayedMaxNote) {
+                    hasNotesOutsideRange = true;
+                }
+            });
+        });
+        
+        if (hasNotesOutsideRange) {
+            // Add expand button to the piano roll
+            const pianoRoll = document.querySelector('.piano-roll');
+            if (pianoRoll) {
+                const expandBtn = document.createElement('button');
+                expandBtn.id = 'expandViewBtn';
+                expandBtn.textContent = '🔍 Show All Notes';
+                expandBtn.className = 'expand-view-btn';
+                expandBtn.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    z-index: 1000;
+                    background: #ff6b6b;
+                    color: white;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-family: 'Minecraft Regular', monospace;
+                    font-size: 12px;
+                    cursor: pointer;
+                `;
+                
+                expandBtn.addEventListener('click', () => {
+                    this.expandToShowAllNotes();
+                });
+                
+                pianoRoll.appendChild(expandBtn);
+            }
+        }
+    }
+
+    // Expand the view to show all notes in the song
+    expandToShowAllNotes() {
+        // Find the actual min and max notes used in the song
+        let actualMinNote = 255;
+        let actualMaxNote = 0;
+        let hasNotes = false;
+        
+        this.song.tracks.forEach(track => {
+            Object.entries(track.notes).forEach(([key, note]) => {
+                const [noteIndex, tick] = key.split(',').map(Number);
+                if (noteIndex >= 0 && noteIndex <= 24) {
+                    actualMinNote = Math.min(actualMinNote, noteIndex);
+                    actualMaxNote = Math.max(actualMaxNote, noteIndex);
+                    hasNotes = true;
+                }
+            });
+        });
+        
+        if (hasNotes) {
+            // Add padding to the range
+            actualMinNote = Math.max(0, actualMinNote - 2);
+            actualMaxNote = Math.min(24, actualMaxNote + 2);
+            
+            // Regenerate grid with the full range
+            this.generateNoteGridWithRange(actualMinNote, actualMaxNote);
+        }
+    }
+
+    // Generate note grid with a specific note range
+    generateNoteGridWithRange(minNote, maxNote) {
+        const gridContainer = document.getElementById('gridContainer');
+        const noteLabels = document.querySelector('.piano-keys');
+        const tickLabels = document.querySelector('.tick-labels');
+        
+        noteLabels.innerHTML = '';
+        tickLabels.innerHTML = '';
+        gridContainer.innerHTML = '';
+        
+        // Use the full song length for the visual grid
+        const visualTicks = this.totalTicks;
+        
+        // Update CSS custom property for song length
+        document.documentElement.style.setProperty('--song-length', visualTicks);
+        
+        const noteRange = maxNote - minNote + 1;
+        
+        // Update CSS custom property for note range
+        document.documentElement.style.setProperty('--note-range', noteRange);
+        
+        // Generate tick labels
+        for (let tick = 0; tick < visualTicks; tick++) {
+            const tickLabel = document.createElement('div');
+            tickLabel.className = 'tick-label';
+            tickLabel.textContent = tick;
+            tickLabels.appendChild(tickLabel);
+        }
+        
+        // Generate note labels
+        const noteNames = this.getCurrentNoteNames();
+        for (let i = minNote; i <= maxNote; i++) {
+            const label = document.createElement('div');
+            label.className = 'note-label';
+            label.textContent = noteNames[i] || '';
+            label.dataset.note = i;
+            noteLabels.appendChild(label);
+        }
+        
+        // Generate grid cells
+        for (let i = minNote; i <= maxNote; i++) {
+            for (let tick = 0; tick < visualTicks; tick++) {
+                const cell = document.createElement('div');
+                cell.className = 'note-cell';
+                cell.dataset.note = i;
+                cell.dataset.tick = tick;
+                gridContainer.appendChild(cell);
+            }
+        }
+        
+        // Update CSS grid template rows
+        // Remove inline style override - let CSS variable handle it
+        // const gridContainerStyle = gridContainer.style;
+        // gridContainerStyle.gridTemplateRows = `repeat(${noteRange}, 25px)`;
+        console.log(`CSS variable --note-range set to: ${noteRange}`);
+        
+        // Debug: Check computed CSS grid styles
+        const computedStyle = window.getComputedStyle(gridContainer);
+        console.log(`Computed grid-template-rows: ${computedStyle.gridTemplateRows}`);
+        console.log(`Computed grid-template-columns: ${computedStyle.gridTemplateColumns}`);
+        
+        // Restore visual state of notes
+        this.restoreNoteVisuals();
+        
+        // Remove the expand button since we've expanded
+        const expandBtn = document.getElementById('expandViewBtn');
+        if (expandBtn) {
+            expandBtn.remove();
+        }
+        
+        // Clear any warnings
+        const statusInfo = document.getElementById('statusInfo');
+        if (statusInfo) {
+            statusInfo.textContent = '';
+            statusInfo.style.color = '';
+        }
+    }
 
     // Add a method to update the volume slider to match the current track
     updateVolumeSlider() {
@@ -2229,10 +2567,28 @@ class NBSEditor {
 
                     // Convert notes
                     for (const [tick, note] of Object.entries(layer.notes)) {
-                        if (note && typeof note.pitch === 'number') {
-                            track.notes[`${note.pitch},${tick}`] = {
-                                instrument: note.instrument || layer.instrument || 0,
-                                pitch: note.pitch
+                        if (note && typeof note.key === 'number') {
+                            // Convert MIDI note numbers to Minecraft Note Block range (0-24)
+                            // Minecraft Note Blocks range from F#3 (MIDI 42) to F#5 (MIDI 66)
+                            let noteIndex = note.key;
+                            
+                            if (noteIndex >= 42 && noteIndex <= 66) {
+                                // Direct mapping from MIDI to Minecraft Note Block range
+                                noteIndex = noteIndex - 42; // Convert to 0-24 range
+                            } else if (noteIndex < 42) {
+                                // Notes below F#3 - map to lowest available note
+                                noteIndex = 0;
+                            } else if (noteIndex > 66) {
+                                // Notes above F#5 - map to highest available note
+                                noteIndex = 24;
+                            } else {
+                                // Fallback for any other cases
+                                noteIndex = Math.max(0, Math.min(24, noteIndex % 25));
+                            }
+                            
+                            track.notes[`${noteIndex},${tick}`] = {
+                                instrument: note.instrument?.id || layer.instrument || 0,
+                                pitch: noteIndex
                             };
                         }
                     }
@@ -2257,7 +2613,9 @@ class NBSEditor {
     }
 
     createDefaultSong1() {
-        // Simple C major scale melody
+        // Simple C major scale melody using Minecraft Note Block range (0-24)
+        // Map: F♯3=0, G3=1, G♯3=2, A3=3, A♯3=4, B3=5, C4=6, C♯4=7, D4=8, D♯4=9, E4=10, F4=11, F♯4=12
+        //      G4=13, G♯4=14, A4=15, A♯4=16, B4=17, C5=18, C♯5=19, D5=20, D♯5=21, E5=22, F5=23, F♯5=24
         const song = {
             name: "Default Song 1",
             author: "Minecraft Music Studio",
@@ -2270,14 +2628,14 @@ class NBSEditor {
                 {
                     instrument: 0, // Harp
                     notes: {
-                        "12,0": { instrument: 0, pitch: 12 }, // C4
-                        "12,4": { instrument: 0, pitch: 12 }, // C4
-                        "13,8": { instrument: 0, pitch: 13 }, // C#4
-                        "14,12": { instrument: 0, pitch: 14 }, // D4
-                        "15,16": { instrument: 0, pitch: 15 }, // D#4
-                        "16,20": { instrument: 0, pitch: 16 }, // E4
-                        "17,24": { instrument: 0, pitch: 17 }, // F4
-                        "18,28": { instrument: 0, pitch: 18 }  // F#4
+                        "6,0": { instrument: 0, pitch: 6 },   // C4
+                        "6,4": { instrument: 0, pitch: 6 },   // C4
+                        "7,8": { instrument: 0, pitch: 7 },   // C♯4
+                        "8,12": { instrument: 0, pitch: 8 },  // D4
+                        "9,16": { instrument: 0, pitch: 9 },  // D♯4
+                        "10,20": { instrument: 0, pitch: 10 }, // E4
+                        "11,24": { instrument: 0, pitch: 11 }, // F4
+                        "12,28": { instrument: 0, pitch: 12 }  // F♯4
                     },
                     volume: 100
                 }
@@ -2288,6 +2646,8 @@ class NBSEditor {
 
     createDefaultSong2() {
         // More complex song with multiple tracks
+        // Map: F♯3=0, G3=1, G♯3=2, A3=3, A♯3=4, B3=5, C4=6, C♯4=7, D4=8, D♯4=9, E4=10, F4=11, F♯4=12
+        //      G4=13, G♯4=14, A4=15, A♯4=16, B4=17, C5=18, C♯5=19, D5=20, D♯5=21, E5=22, F5=23, F♯5=24
         const song = {
             name: "Default Song 2",
             author: "Minecraft Music Studio", 
@@ -2300,21 +2660,21 @@ class NBSEditor {
                 {
                     instrument: 0, // Harp - Melody
                     notes: {
-                        "12,0": { instrument: 0, pitch: 12 }, // C4
-                        "12,8": { instrument: 0, pitch: 12 }, // C4
-                        "14,16": { instrument: 0, pitch: 14 }, // D4
-                        "16,24": { instrument: 0, pitch: 16 }, // E4
-                        "17,32": { instrument: 0, pitch: 17 }, // F4
-                        "19,40": { instrument: 0, pitch: 19 }  // G4
+                        "6,0": { instrument: 0, pitch: 6 },   // C4
+                        "6,8": { instrument: 0, pitch: 6 },   // C4
+                        "8,16": { instrument: 0, pitch: 8 },  // D4
+                        "10,24": { instrument: 0, pitch: 10 }, // E4
+                        "11,32": { instrument: 0, pitch: 11 }, // F4
+                        "13,40": { instrument: 0, pitch: 13 }  // G4
                     },
                     volume: 100
                 },
                 {
                     instrument: 1, // Bass
                     notes: {
-                        "7,0": { instrument: 1, pitch: 7 },   // C3
-                        "7,16": { instrument: 1, pitch: 7 },  // C3
-                        "9,32": { instrument: 1, pitch: 9 }   // D3
+                        "3,0": { instrument: 1, pitch: 3 },   // A3
+                        "3,16": { instrument: 1, pitch: 3 },  // A3
+                        "5,32": { instrument: 1, pitch: 5 }   // B3
                     },
                     volume: 80
                 },
@@ -2404,11 +2764,16 @@ class NBSEditor {
     setupLibraryHandlers() {
         const libraryModal = document.getElementById('libraryModal');
         const libraryBtn = document.getElementById('libraryBtn');
+        const newSongBtn = document.getElementById('newSongBtn');
         const closeLibrary = document.getElementById('closeLibrary');
 
         libraryBtn.addEventListener('click', async () => {
             await this.populateLibrary();
             libraryModal.style.display = 'block';
+        });
+
+        newSongBtn.addEventListener('click', () => {
+            this.createNewSong();
         });
 
         closeLibrary.addEventListener('click', () => {
@@ -2421,6 +2786,36 @@ class NBSEditor {
                 libraryModal.style.display = 'none';
             }
         });
+    }
+
+    createNewSong() {
+        // Create a new empty song
+        const newSong = {
+            name: "New Song",
+            author: "Player",
+            originalAuthor: "",
+            description: "",
+            tempo: 120,
+            timeSignature: 4,
+            length: 64,
+            tracks: [{
+                instrument: 0,
+                notes: {},
+                volume: 100
+            }]
+        };
+        
+        // Load the new song
+        this.loadSongData(newSong);
+        
+        // Update song info fields
+        this.updateSongInfoFields();
+        
+        // Save state
+        this.saveState();
+        
+        // Show a brief notification
+        this.updateStatusBar('New song created! ✨');
     }
 
     setupShareHandlers() {
@@ -2543,6 +2938,8 @@ class NBSEditor {
 
         return card;
     }
+
+
 }
 
 // Initialize NBSEditor as before

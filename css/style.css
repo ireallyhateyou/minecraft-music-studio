@@ -62,7 +62,7 @@ h1 {
     gap: 10px;
 }
 
-.help-btn, .theme-btn {
+.help-btn {
     background: #4a4a4a;
     color: white;
     border: 2px solid #666;
@@ -78,7 +78,7 @@ h1 {
     justify-content: center;
 }
 
-.help-btn:hover, .theme-btn:hover {
+.help-btn:hover {
     background: #5a5a5a;
     transform: translateY(-1px);
     box-shadow: 0 3px 0 #333;
@@ -927,6 +927,13 @@ input[type="text"]:focus, textarea:focus {
     resize: vertical;
 }
 
+.song-buttons-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    grid-column: 1 / -1;
+}
+
 .song-info-btn {
     background: #4a4a4a;
     color: white;
@@ -937,10 +944,9 @@ input[type="text"]:focus, textarea:focus {
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 0 #333;
-    margin-top: 10px;
-    width: 100%;
+    margin-top: 0;
+    flex: 1;
     font-family: 'Minecraft Regular', monospace;
-    grid-column: 1 / -1;
 }
 
 .song-info-btn:hover {
@@ -1030,7 +1036,7 @@ input[type="text"]:focus, textarea:focus {
         gap: 8px;
     }
     
-    .header-btn, .help-btn, .theme-btn {
+    .header-btn, .help-btn {
         width: 36px;
         height: 36px;
         font-size: 16px;
@@ -1149,6 +1155,10 @@ input[type="text"]:focus, textarea:focus {
     
     /* Hide desktop song-info on mobile */
     .controls .song-info {
+        display: none;
+    }
+    
+    .song-buttons-container {
         display: none;
     }
     
